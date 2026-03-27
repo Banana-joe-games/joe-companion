@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: macos-14
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -35,38 +35,29 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" build.keychain
           security find-identity -v -p codesigning build.keychain
           rm certificate.p12
-          echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
 
       - name: Build without signing
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: npx electron-builder --mac --dir
 
-      - name: Manual codesign
+      - name: Sign app
         run: |
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           IDENTITY=$(security find-identity -v -p codesigning build.keychain | head -1 | awk -F'"' '{print $2}')
           echo "Signing with: $IDENTITY"
           codesign --deep --force --options runtime --sign "$IDENTITY" --entitlements entitlements.mac.plist "dist/mac-arm64/Clippy Claude.app"
-          echo "Verifying..."
           codesign --verify --deep --strict "dist/mac-arm64/Clippy Claude.app"
           echo "Signing complete!"
 
-      - name: Notarize
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          ditto -c -k --keepParent "dist/mac-arm64/Clippy Claude.app" "dist/ClippyClaude.zip"
-          xcrun notarytool submit "dist/ClippyClaude.zip" --apple-id "$APPLE_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
-          xcrun stapler staple "dist/mac-arm64/Clippy Claude.app"
-
       - name: Create DMG
         run: |
-          npm install -g create-dmg || true
-          create-dmg "dist/mac-arm64/Clippy Claude.app" dist/ || true
-          mv dist/*.dmg "dist/Clippy-Claude-${{ github.ref_name }}.dmg" || true
+          npx create-dmg "dist/mac-arm64/Clippy Claude.app" dist/ || true
+          DMG=$(ls dist/*.dmg 2>/dev/null | head -1)
+          if [ -n "$DMG" ]; then
+            mv "$DMG" "dist/Clippy-Claude-${{ github.ref_name }}.dmg"
+          else
+            hdiutil create -volname "Clippy Claude" -srcfolder "dist/mac-arm64/Clippy Claude.app" -ov -format UDZO "dist/Clippy-Claude-${{ github.ref_name }}.dmg"
+          fi
 
       - name: Create ZIP for auto-update
         run: |
@@ -81,9 +72,4 @@ jobs:
             --title "Joe ${{ github.ref_name }}" \
             --generate-notes \
             dist/Clippy-Claude-${{ github.ref_name }}.dmg \
-            dist/Clippy-Claude-${{ github.ref_name }}-mac.zip \
-            dist/mac-arm64/Clippy\ Claude.app/Contents/Resources/latest-mac.yml || \
-          gh release create "${{ github.ref_name }}" \
-            --title "Joe ${{ github.ref_name }}" \
-            --generate-notes \
             dist/Clippy-Claude-${{ github.ref_name }}-mac.zip
