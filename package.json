@@ -14,13 +14,15 @@
     "mac": {
       "category": "public.app-category.productivity",
       "target": ["dmg", "zip"],
-      "identity": "Developer ID Application: Andrea Deotto (3A45BSS4QX)",
+      "identity": "Andrea Deotto (3A45BSS4QX)",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "entitlements.mac.plist",
       "entitlementsInherit": "entitlements.mac.plist",
-      "notarize": true
+      "notarize": true,
+      "type": "distribution"
     },
+    "afterPack": "./afterPack.js",
     "dmg": {
       "sign": false
     },
