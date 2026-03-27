@@ -26,20 +26,64 @@ jobs:
           CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
         run: |
           echo "$CERTIFICATE_P12" | base64 --decode > certificate.p12
-          security create-keychain -p "build" build.keychain
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 12)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security default-keychain -s build.keychain
-          security unlock-keychain -p "build" build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
           security import certificate.p12 -k build.keychain -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
-          security set-key-partition-list -S apple-tool:,apple: -s -k "build" build.keychain
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" build.keychain
           security find-identity -v -p codesigning build.keychain
           rm certificate.p12
+          echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
 
-      - name: Build and sign
+      - name: Build without signing
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npx electron-builder --mac --dir
+
+      - name: Manual codesign
+        run: |
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          IDENTITY=$(security find-identity -v -p codesigning build.keychain | head -1 | awk -F'"' '{print $2}')
+          echo "Signing with: $IDENTITY"
+          codesign --deep --force --options runtime --sign "$IDENTITY" --entitlements entitlements.mac.plist "dist/mac-arm64/Clippy Claude.app"
+          echo "Verifying..."
+          codesign --verify --deep --strict "dist/mac-arm64/Clippy Claude.app"
+          echo "Signing complete!"
+
+      - name: Notarize
+        env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          CSC_KEYCHAIN: build.keychain
-          CSC_KEYCHAIN_PASSWORD: build
-        run: npx electron-builder --mac --publish always
+        run: |
+          ditto -c -k --keepParent "dist/mac-arm64/Clippy Claude.app" "dist/ClippyClaude.zip"
+          xcrun notarytool submit "dist/ClippyClaude.zip" --apple-id "$APPLE_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+          xcrun stapler staple "dist/mac-arm64/Clippy Claude.app"
+
+      - name: Create DMG
+        run: |
+          npm install -g create-dmg || true
+          create-dmg "dist/mac-arm64/Clippy Claude.app" dist/ || true
+          mv dist/*.dmg "dist/Clippy-Claude-${{ github.ref_name }}.dmg" || true
+
+      - name: Create ZIP for auto-update
+        run: |
+          cd dist/mac-arm64
+          ditto -c -k --keepParent "Clippy Claude.app" "../Clippy-Claude-${{ github.ref_name }}-mac.zip"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "Joe ${{ github.ref_name }}" \
+            --generate-notes \
+            dist/Clippy-Claude-${{ github.ref_name }}.dmg \
+            dist/Clippy-Claude-${{ github.ref_name }}-mac.zip \
+            dist/mac-arm64/Clippy\ Claude.app/Contents/Resources/latest-mac.yml || \
+          gh release create "${{ github.ref_name }}" \
+            --title "Joe ${{ github.ref_name }}" \
+            --generate-notes \
+            dist/Clippy-Claude-${{ github.ref_name }}-mac.zip
