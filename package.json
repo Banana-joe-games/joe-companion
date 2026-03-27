@@ -22,7 +22,6 @@
       "notarize": true,
       "type": "distribution"
     },
-    "afterPack": "./afterPack.js",
     "dmg": {
       "sign": false
     },
