@@ -5,14 +5,29 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --mac --dir"
+    "build": "electron-builder --mac",
+    "release": "electron-builder --mac --publish always"
   },
   "build": {
     "appId": "com.bananajoe.clippy-claude",
     "productName": "Clippy Claude",
     "mac": {
       "category": "public.app-category.productivity",
-      "target": ["dmg"]
+      "target": ["dmg", "zip"],
+      "identity": "Developer ID Application: Andrea Deotto (3A45BSS4QX)",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist",
+      "notarize": true
+    },
+    "dmg": {
+      "sign": false
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Banana-joe-games",
+      "repo": "joe-companion"
     },
     "files": [
       "main.js",
@@ -26,5 +41,8 @@
   "devDependencies": {
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.3"
   }
 }

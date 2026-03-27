@@ -1,8 +1,9 @@
-const { app, BrowserWindow, screen, globalShortcut, ipcMain, Tray, Menu, nativeImage } = require("electron");
+const { app, BrowserWindow, screen, globalShortcut, ipcMain, Tray, Menu, nativeImage, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const { exec } = require("child_process");
+const { autoUpdater } = require("electron-updater");
 
 let mainWindow = null;
 let tray = null;
@@ -255,6 +256,12 @@ app.whenReady().then(() => {
     // Check active window every 3 seconds
     setTimeout(checkActiveWindow, 2000);
     setInterval(checkActiveWindow, 3000);
+
+    // Auto-update: check on launch, then every 4 hours
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.checkForUpdates().catch(() => {});
+    setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 4 * 60 * 60 * 1000);
   }
 
   if (settings.name) {
@@ -262,6 +269,14 @@ app.whenReady().then(() => {
   } else {
     showOnboarding((name) => startApp(name));
   }
+});
+
+// Auto-update events
+autoUpdater.on("update-downloaded", (info) => {
+  if (mainWindow) {
+    mainWindow.webContents.send("show-bubble", `update ${info.version} ready — restarting soon`);
+  }
+  setTimeout(() => autoUpdater.quitAndInstall(false, true), 10000);
 });
 
 app.on("will-quit", () => globalShortcut.unregisterAll());
