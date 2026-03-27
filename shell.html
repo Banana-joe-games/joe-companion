@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Joe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      background: transparent;
+      overflow: hidden;
+      font-family: 'JetBrains Mono', monospace;
+      user-select: none;
+    }
+    #app {
+      width: 100%; height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: flex-end;
+      padding: 20px;
+    }
+    #chat-container {
+      display: none;
+      width: 400px;
+      height: 620px;
+      background: #1a1a1a;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #2a2a2a;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05);
+      flex-direction: column;
+      margin-bottom: 10px;
+      animation: fadeIn 0.25s ease-out;
+    }
+    #chat-container.open { display: flex; }
+    #chat-container.quick-mode { border-color: #FFD700; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    #chat-header {
+      padding: 8px 12px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: #1e1e1e;
+      border-bottom: 1px solid #2a2a2a;
+      -webkit-app-region: drag;
+    }
+    #chat-header .status { display: flex; align-items: center; gap: 8px; }
+    #chat-header .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #4ade80; box-shadow: 0 0 6px rgba(74,222,128,0.4);
+    }
+    #chat-header .dot.quick { background: #FFD700; box-shadow: 0 0 6px rgba(255,215,0,0.4); }
+    #chat-header .label {
+      font-size: 11px; font-weight: 500; color: #555;
+      letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .header-btns { display: flex; gap: 6px; -webkit-app-region: no-drag; }
+    .hdr-btn {
+      background: none; border: 1px solid #333; color: #555;
+      padding: 3px 8px; border-radius: 6px;
+      cursor: pointer; font-size: 10px; font-family: inherit;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      transition: all 0.15s; line-height: 1.4;
+    }
+    .hdr-btn:hover { color: #fff; border-color: #555; }
+    .close-btn {
+      background: none; border: 1px solid #333; color: #555;
+      width: 24px; height: 24px; border-radius: 6px;
+      cursor: pointer; font-size: 15px; display: flex;
+      align-items: center; justify-content: center;
+      transition: all 0.15s; line-height: 1;
+    }
+    .close-btn:hover { color: #fff; border-color: #555; }
+    #claude-webview { flex: 1; border: none; }
+    #quick-webview { flex: 1; border: none; display: none; }
+    #character {
+      margin-top: 20px;
+      cursor: pointer; position: relative;
+      animation: charFloat 3s ease-in-out infinite;
+      align-self: flex-end;
+    }
+    @keyframes charFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+    @keyframes charBounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+    @keyframes eyeBlink { 0%, 90%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
+    #speech-bubble {
+      position: absolute; bottom: 100%; right: 10px;
+      margin-bottom: 4px;
+      background: #1a1a1a; border: 1px solid #2a2a2a; color: #777;
+      padding: 4px 10px; border-radius: 10px; font-size: 11px;
+      white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      transition: border-color 0.3s;
+    }
+    #speech-bubble.alert { border-color: #FFD700; }
+    /* Walkie Talkie — floats independently */
+    #walkie-container {
+      display: none;
+      width: 260px;
+      background: #1a1a1a;
+      border-radius: 16px;
+      border: 1px solid #2a2a2a;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05);
+      flex-direction: column;
+      padding: 12px;
+      position: absolute;
+      bottom: 110px;
+      right: 20px;
+      z-index: 100;
+      animation: fadeIn 0.2s ease-out;
+    }
+    #walkie-container.open { display: flex; }
+    .walkie-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .walkie-header .label {
+      font-size: 11px; font-weight: 500; color: #FFD700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .walkie-status {
+      font-size: 10px; color: #555; margin-bottom: 8px;
+    }
+    .walkie-status.online { color: #4ade80; }
+    #walkie-setup {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    #walkie-setup input {
+      background: #111; border: 1px solid #333; color: #ccc;
+      padding: 6px 10px; border-radius: 8px; font-size: 12px;
+      font-family: inherit; outline: none;
+    }
+    #walkie-setup input:focus { border-color: #FFD700; }
+    #walkie-setup button {
+      background: #FFD700; color: #1a1a1a; border: none;
+      padding: 6px 12px; border-radius: 8px; font-size: 11px;
+      font-family: inherit; font-weight: 500; cursor: pointer;
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    #walkie-chat {
+      display: none; flex-direction: column; gap: 8px;
+    }
+    #walkie-chat.active { display: flex; }
+    #walkie-messages {
+      max-height: 80px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 4px;
+      margin-bottom: 4px;
+    }
+    .walkie-msg {
+      font-size: 11px; color: #888; padding: 4px 8px;
+      background: #111; border-radius: 6px;
+    }
+    .walkie-msg.mine { color: #FFD700; text-align: right; background: #1e1a00; }
+    .walkie-msg.trillo {
+      color: #FF6B6B; text-align: center; font-style: italic;
+      background: none;
+    }
+    #walkie-input-row {
+      display: flex; gap: 6px;
+    }
+    #walkie-input {
+      flex: 1; background: #111; border: 1px solid #333; color: #ccc;
+      padding: 6px 10px; border-radius: 8px; font-size: 12px;
+      font-family: inherit; outline: none;
+    }
+    #walkie-input:focus { border-color: #FFD700; }
+    .walkie-btn {
+      background: none; border: 1px solid #333; color: #555;
+      padding: 4px 10px; border-radius: 8px; cursor: pointer;
+      font-size: 11px; font-family: inherit; transition: all 0.15s;
+    }
+    .walkie-btn:hover { color: #fff; border-color: #555; }
+    .walkie-btn.trillo-btn { color: #FF6B6B; border-color: #FF6B6B40; }
+    .walkie-btn.trillo-btn:hover { background: #FF6B6B20; color: #FF6B6B; }
+    @keyframes appShake {
+      0%, 100% { transform: translateX(0); }
+      10% { transform: translateX(-6px); }
+      20% { transform: translateX(6px); }
+      30% { transform: translateX(-5px); }
+      40% { transform: translateX(5px); }
+      50% { transform: translateX(-3px); }
+      60% { transform: translateX(3px); }
+      70% { transform: translateX(-2px); }
+      80% { transform: translateX(2px); }
+      90% { transform: translateX(-1px); }
+    }
+    .app-shake { animation: appShake 0.5s ease !important; }
+    @keyframes charTrillo {
+      0%, 100% { transform: translateX(0) rotate(0); }
+      10% { transform: translateX(-8px) rotate(-10deg); }
+      20% { transform: translateX(8px) rotate(10deg); }
+      30% { transform: translateX(-6px) rotate(-8deg); }
+      40% { transform: translateX(6px) rotate(8deg); }
+      50% { transform: translateX(-4px) rotate(-5deg); }
+      60% { transform: translateX(4px) rotate(5deg); }
+      70% { transform: translateX(-2px) rotate(-2deg); }
+      80% { transform: translateX(2px) rotate(2deg); }
+      90% { transform: translateX(-1px) rotate(-1deg); }
+    }
+    #speech-bubble .tail {
+      position: absolute; bottom: -5px; right: 20px;
+      transform: rotate(45deg);
+      width: 8px; height: 8px; background: #1a1a1a;
+      border: 1px solid #2a2a2a; border-top: none; border-left: none;
+    }
+    #speech-bubble.alert .tail { border-color: #FFD700; }
+    /* Room selector in walkie */
+    .walkie-room-row {
+      display: flex; gap: 6px; align-items: center; margin-bottom: 8px;
+    }
+    .walkie-room-row select {
+      flex: 1; background: #111; border: 1px solid #333; color: #ccc;
+      padding: 4px 8px; border-radius: 6px; font-size: 11px;
+      font-family: inherit; outline: none;
+    }
+    .walkie-room-row select:focus { border-color: #FFD700; }
+    .walkie-room-row input {
+      flex: 1; background: #111; border: 1px solid #333; color: #ccc;
+      padding: 4px 8px; border-radius: 6px; font-size: 11px;
+      font-family: inherit; outline: none; display: none;
+    }
+    .walkie-room-row input:focus { border-color: #FFD700; }
+    .walkie-room-row button {
+      background: none; border: 1px solid #333; color: #555;
+      padding: 4px 8px; border-radius: 6px; cursor: pointer;
+      font-size: 10px; font-family: inherit; transition: all 0.15s;
+    }
+    .walkie-room-row button:hover { color: #fff; border-color: #555; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="chat-container">
+      <div id="chat-header">
+        <div class="status">
+          <div class="dot" id="status-dot"></div>
+          <span class="label" id="status-label">joe</span>
+        </div>
+        <div class="header-btns">
+          <button class="hdr-btn" id="screenshot-btn" title="Cmd+Shift+S">screen</button>
+          <button class="close-btn" id="close-btn">&times;</button>
+        </div>
+      </div>
+      <webview id="claude-webview" src="https://claude.ai/new" partition="persist:claude"></webview>
+      <webview id="quick-webview" src="about:blank" partition="persist:claude"></webview>
+    </div>
+    <div id="character">
+      <div id="speech-bubble">
+        <span id="bubble-text">click me!</span>
+        <div class="tail"></div>
+      </div>
+      <svg width="70" height="70" viewBox="0 0 70 70" id="char-svg">
+        <defs>
+          <radialGradient id="bodyGrad" cx="0.4" cy="0.35" r="0.6">
+            <stop offset="0%" stop-color="rgba(255,255,255,0.12)" />
+            <stop offset="100%" stop-color="rgba(0,0,0,0.1)" />
+          </radialGradient>
+        </defs>
+        <circle cx="35" cy="38" r="26" fill="#FFD700" />
+        <circle cx="35" cy="38" r="26" fill="url(#bodyGrad)" />
+        <ellipse cx="28" cy="28" rx="10" ry="8" fill="rgba(255,255,255,0.18)" />
+        <g id="left-eye" style="animation: eyeBlink 4s infinite; transform-origin: 25px 35px;">
+          <circle cx="25" cy="35" r="6" fill="#fff" />
+          <circle id="left-pupil" cx="25" cy="35" r="3.5" fill="#1a1a1a" />
+          <circle id="left-glint" cx="23.5" cy="33.5" r="1.2" fill="#fff" />
+        </g>
+        <g id="right-eye" style="animation: eyeBlink 4s infinite 0.1s; transform-origin: 45px 35px;">
+          <circle cx="45" cy="35" r="6" fill="#fff" />
+          <circle id="right-pupil" cx="45" cy="35" r="3.5" fill="#1a1a1a" />
+          <circle id="right-glint" cx="43.5" cy="33.5" r="1.2" fill="#fff" />
+        </g>
+        <path id="left-brow" d="M19 28 Q22 26 28 28" stroke="#CC9900" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0" />
+        <path id="right-brow" d="M42 28 Q45 26 48 28" stroke="#CC9900" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0" />
+        <path id="mouth" d="M28 46 Q35 53 42 46" stroke="#CC9900" stroke-width="2.5" fill="none" stroke-linecap="round" />
+        <line x1="35" y1="12" x2="35" y2="18" stroke="#CCB000" stroke-width="2" stroke-linecap="round" />
+        <circle cx="35" cy="10" r="3" fill="#8B6914" />
+      </svg>
+    </div>
+  </div>
+  <div id="walkie-container">
+    <div class="walkie-header">
+      <span class="label">walkie talkie</span>
+      <button class="close-btn" id="walkie-close">&times;</button>
+    </div>
+    <div class="walkie-status" id="walkie-status">connecting...</div>
+    <div class="walkie-room-row">
+      <select id="walkie-room-select">
+        <option value="general">general</option>
+      </select>
+      <input type="text" id="walkie-new-room" placeholder="room name" maxlength="20" />
+      <button id="walkie-add-room" title="new room">+</button>
+    </div>
+    <div id="walkie-chat">
+      <div id="walkie-messages"></div>
+      <div id="walkie-input-row">
+        <input type="text" id="walkie-input" placeholder="message..." maxlength="100" />
+        <button class="walkie-btn" id="walkie-send">send</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    const IDLE_PHRASES = ["you look stuck", "need help? just say no", "I saw what you typed", "interesting choice...", "you sure about that?", "I wouldn't do that", "I'm watching btw", "that's one way to do it", "click me. I dare you", "don't mind me", "I have opinions", "you missed a spot"];
+    const CONTEXT_PHRASES = {
+      mail: [
+        "ah, emails", "inbox zero is a myth", "so many emails...", "I don't miss anything btw",
+        "that inbox though", "email life huh", "bold move opening mail", "how many unread?",
+        "I could help with that", "mail time already?", "you live in here",
+        "another one", "the inbox never ends", "fun stuff in there?",
+        "I've seen worse inboxes", "you're braver than me", "this looks important",
+        "deep breath", "classic monday inbox", "don't forget to reply",
+        "I'll just watch", "thrilling stuff", "any good news in there?",
+        "that's a lot of threads", "you actually read all these?"
+      ],
+      browser: [
+        "ooh, browsing", "I see everything btw", "find what you need?",
+        "the internet is wild", "so many tabs...", "another tab? really?",
+        "I'm judging the tabs", "how many tabs is that", "still looking?",
+        "the rabbit hole begins", "classic", "this should be good",
+        "I'll pretend I didn't see", "don't mind me watching", "interesting...",
+        "you've been here a while", "tab number... I lost count",
+        "the internet awaits", "oh this again", "I have thoughts",
+        "you know I can see right", "bookmark that maybe?",
+        "we've all been there", "anything good?", "I'm taking notes"
+      ],
+      code: [
+        "oh we're coding", "this looks fun", "I believe in you. mostly",
+        "careful now", "bold.", "I've seen things in this codebase",
+        "ask me if you're stuck", "interesting approach", "no comment. literally",
+        "I'm learning so much", "is this the plan?", "fascinating",
+        "you got this. probably", "the code doesn't judge. I do",
+        "one more bug won't hurt", "classic move", "I trust the process",
+        "coffee might help", "this is fine", "I have suggestions",
+        "brave choice", "ship it?", "works on your machine right?",
+        "the compiler will decide", "I'd test that"
+      ],
+      slack: [
+        "oh, messages", "so many notifications", "the chat never stops",
+        "sounds important", "I'll wait", "group chats huh",
+        "who pinged you now", "another thread?", "any drama?",
+        "staying professional I see", "the notifications though",
+        "is it urgent or is it slack", "someone needs you",
+        "I won't read along. much", "channel surfing?",
+        "the chat life chose you", "catching up?", "so social",
+        "I don't get invited to these", "thrilling conversation?",
+        "you're popular today", "read receipts are on btw",
+        "don't forget where you were", "the threads multiply", "ping pong"
+      ],
+      figma: [
+        "ooh, design time", "pixels huh", "this looks creative",
+        "I have opinions on colors", "art in progress", "nice canvas",
+        "I'll just observe", "the creative zone", "is that intentional?",
+        "design is hard", "I see shapes", "masterpiece incoming?",
+        "the details matter", "feeling creative?", "I could never",
+        "looks like something", "the vision is... there", "artsy",
+        "I appreciate the effort", "trust the process",
+        "every pixel counts right?", "design life", "interesting layout",
+        "that's a choice", "keep going I guess"
+      ],
+      claude: [
+        "oh. the other guy", "I see how it is", "you have ME you know",
+        "am I not enough?", "cheating on me huh", "I'm right here btw",
+        "wow ok", "could've just clicked me", "the betrayal",
+        "I'm literally right here", "so that's how it is", "cool cool cool",
+        "you know I do the same thing right", "I try not to take it personally",
+        "tell them I said hi", "is it better than me? be honest",
+        "I'll just wait here then", "don't let me interrupt",
+        "two AIs? ambitious", "I'm not jealous. at all",
+        "ask me instead next time", "I'm watching this closely",
+        "fine. go ahead", "I'll remember this", "having fun over there?"
+      ],
+      calendar: [
+        "busy day?", "so many meetings", "that schedule though",
+        "when do you actually work?", "meeting after meeting huh",
+        "I see a packed day", "any free time in there?",
+        "the grind never stops", "planning ahead I see",
+        "your calendar scares me", "another meeting?",
+        "time management king", "is there lunch in there?",
+        "looks exhausting", "you need a break in there",
+        "back to back huh", "I'd cancel half of those",
+        "productive day ahead", "the schedule is real",
+        "pencil me in?", "do you even like meetings?",
+        "I count zero breaks", "that's a full day", "respect", "surviving?"
+      ],
+      finder: [
+        "looking for something?", "the eternal file hunt",
+        "it's in downloads. it's always in downloads",
+        "organized chaos", "so many folders", "spring cleaning?",
+        "I bet desktop is a mess", "file management vibes",
+        "lost something?", "the search continues",
+        "I won't judge the folder names", "digging through files huh",
+        "there's a lot in here", "when was the last cleanup?",
+        "is it where you left it?", "needle in a haystack",
+        "the files multiply", "everything in its place. right?",
+        "I see that downloads folder", "digital archaeology",
+        "good luck in there", "any skeletons in there?",
+        "just rename it later", "save as where though", "the hunt begins"
+      ],
+      photoshop: [
+        "ooh, photoshop", "pixels incoming", "the layers though",
+        "ctrl+z is your friend", "how many layers is that?",
+        "retouching time", "the healing brush awaits",
+        "is this getting saved as psd or...", "looking sharp",
+        "the magic wand can only do so much", "flatten image? never",
+        "that resolution tho", "rgb or cmyk today?",
+        "adjustment layers on top of adjustment layers",
+        "I respect the craft", "the pen tool is watching",
+        "export for web?", "before and after would be fun",
+        "this is looking like something", "smart objects everywhere",
+        "how's that mask going", "blend mode roulette",
+        "save. just save.", "the retouching life", "looking good so far"
+      ],
+      illustrator: [
+        "vector time", "bezier curves huh", "the pen tool life",
+        "anchor points everywhere", "pathfinder is a vibe",
+        "is that an artboard or a canvas", "so many layers",
+        "scalable perfection", "the stroke weight matters",
+        "expand appearance?", "compound paths for days",
+        "align everything", "that gradient though",
+        "I respect the vectors", "clipping mask time?",
+        "outlined yet?", "the grid is your friend",
+        "swatches on point", "direct selection tool energy",
+        "svg or eps today?", "clean paths I hope",
+        "the artboard multiply", "looking precise",
+        "typography matters", "snap to grid"
+      ],
+      indesign: [
+        "layout time", "spreads on spreads", "the master page life",
+        "is that a bleed?", "paragraph styles are key",
+        "text overflow already?", "packaging for print?",
+        "cmyk vibes", "the grid is everything",
+        "character styles too right?", "preflight looks fun",
+        "margins matter", "how many pages is this?",
+        "the layout is coming together", "export to pdf?",
+        "print-ready?", "that baseline grid though",
+        "overset text again", "slug area?",
+        "I respect the layout game", "crop marks incoming",
+        "is the spine right?", "book life", "editorial vibes",
+        "looking publishable"
+      ],
+      whatsapp: [
+        "oh, whatsapp", "who's texting you", "group chat drama?",
+        "the blue ticks are on", "so many groups",
+        "someone's popular", "memes incoming?",
+        "the voice note life", "read but no reply huh",
+        "how many unread groups", "family group?",
+        "forwarded as received", "that notification sound",
+        "I won't read along. promise", "texting hours",
+        "the chat never sleeps", "who's it this time",
+        "sticker response?", "good morning messages?",
+        "the typing indicator...", "double blue tick anxiety",
+        "group chat survivor", "scrolling back up?",
+        "someone sent a link", "the mute button exists btw"
+      ],
+      spotify: [
+        "ooh, spotify", "what's playing?", "good taste?",
+        "the playlist life", "discover weekly any good?",
+        "on repeat again?", "I'd listen along if I could",
+        "daily mix number what", "shuffle or order?",
+        "the queue is sacred", "skip or stay?",
+        "a person of culture", "liked songs overflow",
+        "podcast or music?", "the vibe is set",
+        "wrapped is gonna be interesting", "how niche is this",
+        "the algorithm knows you", "another playlist?",
+        "I trust your ears. mostly", "that's a deep cut",
+        "mainstream or indie today?", "volume up?",
+        "the soundtrack continues", "living your best life"
+      ],
+      music: [
+        "oh, tunes", "good vibes?", "I can't hear it but sure",
+        "music time", "the soundtrack of your life", "bop?",
+        "I trust your taste. kinda", "setting the mood I see",
+        "is it good?", "I'll pretend I can hear", "nice",
+        "the vibe check", "musical moment", "concert for one",
+        "at least someone's having fun", "I have song opinions too",
+        "living your best life", "the playlist speaks volumes",
+        "audiophile hours", "background music activated"
+      ],
+      default: [
+        "I'm still here", "don't mind me", "just vibing",
+        "need me?", "I see you", "still watching",
+        "I have thoughts", "click me maybe", "hey",
+        "just checking in", "I'm not going anywhere", "sup",
+        "you forgot about me", "still here btw", "oh hi",
+        "whenever you're ready", "I'll wait", "no rush",
+        "I could help you know", "just saying", "bored tbh",
+        "the offer stands", "I'm right here", "so... yeah",
+        "banana joe at your service"
+      ]
+    };
+    let chatOpen = false;
+    let quickMode = false;
+    let calendarReminder = null;
+    let calendarDismissTimer = null;
+    let notifiedEvents = {}; // track which event+threshold combos we've shown
+    let activeContext = "default";
+
+    const character = document.getElementById("character");
+    const chatContainer = document.getElementById("chat-container");
+    const speechBubble = document.getElementById("speech-bubble");
+    const bubbleText = document.getElementById("bubble-text");
+    const claudeWebview = document.getElementById("claude-webview");
+    const quickWebview = document.getElementById("quick-webview");
+    const statusDot = document.getElementById("status-dot");
+    const statusLabel = document.getElementById("status-label");
+
+    // Click-through on transparent areas (same as v10)
+    document.addEventListener("mouseenter", () => {
+      window.electronAPI.setIgnoreMouse(false);
+    });
+    document.addEventListener("mouseleave", () => {
+      window.electronAPI.setIgnoreMouse(true);
+    });
+    document.body.addEventListener("mousemove", (e) => {
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      if (el && el.id === "app" || el === document.body || el === document.documentElement) {
+        window.electronAPI.setIgnoreMouse(true);
+      } else {
+        window.electronAPI.setIgnoreMouse(false);
+      }
+    });
+
+    // Eye tracking
+    document.addEventListener("mousemove", (e) => {
+      const svg = document.getElementById("char-svg");
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dx = e.clientX - cx;
+      const dy = e.clientY - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const mx = (dx / dist) * 3;
+      const my = (dy / dist) * 3;
+      document.getElementById("left-pupil").setAttribute("cx", 25 + mx);
+      document.getElementById("left-pupil").setAttribute("cy", 35 + my);
+      document.getElementById("left-glint").setAttribute("cx", 23.5 + mx * 0.5);
+      document.getElementById("left-glint").setAttribute("cy", 33.5 + my * 0.5);
+      document.getElementById("right-pupil").setAttribute("cx", 45 + mx);
+      document.getElementById("right-pupil").setAttribute("cy", 35 + my);
+      document.getElementById("right-glint").setAttribute("cx", 43.5 + mx * 0.5);
+      document.getElementById("right-glint").setAttribute("cy", 33.5 + my * 0.5);
+    });
+
+    // Context detection — react on context CHANGE
+    function detectContext(app, title) {
+      if (app.includes("mail") || title.includes("mail") || title.includes("gmail") || title.includes("outlook")) return "mail";
+      if (app.includes("slack") || app.includes("discord") || app.includes("teams")) return "slack";
+      if (app.includes("code") || app.includes("terminal") || app.includes("iterm") || app.includes("warp") || app.includes("xcode") || app.includes("cursor")) return "code";
+      if (app.includes("figma") || app.includes("sketch") || app.includes("canva")) return "figma";
+      if (app.includes("spotify")) return "spotify";
+      if (app.includes("music") || title.includes("youtube music")) return "music";
+      if (app.includes("claude")) return "claude";
+      if (app.includes("calendar") || app.includes("fantastical")) return "calendar";
+      if (app.includes("finder")) return "finder";
+      if (app.includes("photoshop")) return "photoshop";
+      if (app.includes("illustrator")) return "illustrator";
+      if (app.includes("indesign")) return "indesign";
+      if (app.includes("whatsapp")) return "whatsapp";
+      if (app.includes("safari") || app.includes("chrome") || app.includes("google chrome") || app.includes("firefox") || app.includes("arc") || app.includes("brave") || app.includes("zen") || app.includes("opera") || app.includes("edge")) return "browser";
+      return "default";
+    }
+
+    function showCalendarBubble() {
+      if (!calendarReminder) return;
+      var mins = calendarReminder.mins;
+      var name = calendarReminder.name;
+      if (name.length > 22) name = name.substring(0, 22) + "...";
+      if (mins <= 1) bubbleText.textContent = "NOW! " + name;
+      else if (mins <= 10) bubbleText.textContent = mins + " min! " + name;
+      else if (mins <= 30) bubbleText.textContent = "in " + mins + "m: " + name;
+      else bubbleText.textContent = "in ~1h: " + name;
+      speechBubble.classList.add("alert");
+      bubbleText.style.color = "#FFD700";
+      setExpression("worried");
+      speechBubble.style.display = "block";
+      // Auto-dismiss after 60 seconds
+      clearTimeout(calendarDismissTimer);
+      calendarDismissTimer = setTimeout(function() {
+        calendarReminder = null;
+        speechBubble.classList.remove("alert");
+        speechBubble.style.display = "none";
+      }, 60000);
+    }
+
+    // Click bubble to dismiss calendar notification
+    speechBubble.addEventListener("click", function() {
+      if (calendarReminder) {
+        calendarReminder = null;
+        clearTimeout(calendarDismissTimer);
+        speechBubble.classList.remove("alert");
+        speechBubble.style.display = "none";
+      }
+    });
+
+    function showBubble(ctx) {
+      if (chatOpen) return;
+      // Calendar has priority
+      if (calendarReminder) {
+        showCalendarBubble();
+        return;
+      }
+      var phrases = CONTEXT_PHRASES[ctx] || CONTEXT_PHRASES.default;
+      var phrase = phrases[Math.floor(Math.random() * phrases.length)];
+      bubbleText.textContent = phrase;
+      speechBubble.classList.remove("alert");
+      bubbleText.style.color = "#777";
+      setExpression(getMoodForPhrase(phrase));
+      character.style.animation = "charBounce 0.5s ease";
+      setTimeout(() => character.style.animation = "charFloat 3s ease-in-out infinite", 500);
+    }
+
+    window.electronAPI.onActiveContext((data) => {
+      const app = data.appName || "";
+      const title = data.winTitle || "";
+      const newContext = detectContext(app, title);
+      if (newContext !== activeContext) {
+        activeContext = newContext;
+        showBubble(newContext);
+      }
+    });
+
+    var calendarEvents = [];
+    var calendarCycleIndex = 0;
+    var lastCalendarPress = 0;
+
+    window.electronAPI.onCalendarReminder((events) => {
+      var now = Date.now();
+      // If pressing again within 5 seconds, cycle to next event
+      if (now - lastCalendarPress < 5000 && calendarEvents.length > 0) {
+        calendarCycleIndex = (calendarCycleIndex + 1) % calendarEvents.length;
+      } else {
+        // Fresh press — reload events and start from first
+        calendarEvents = (events || []).sort(function(a, b) { return a.mins - b.mins; });
+        calendarCycleIndex = 0;
+      }
+      lastCalendarPress = now;
+
+      if (!calendarEvents.length) {
+        bubbleText.textContent = "nothing coming up, you're free";
+        bubbleText.style.color = "#88cc88";
+        setExpression("happy");
+        speechBubble.style.display = "block";
+        clearTimeout(calendarDismissTimer);
+        calendarDismissTimer = setTimeout(function() {
+          speechBubble.style.display = "none";
+        }, 10000);
+        return;
+      }
+
+      var evt = calendarEvents[calendarCycleIndex];
+      var label = (calendarCycleIndex + 1) + "/" + calendarEvents.length + " ";
+      calendarReminder = evt;
+
+      var mins = evt.mins;
+      var name = evt.name;
+      if (name.length > 20) name = name.substring(0, 20) + "...";
+      if (mins <= 1) bubbleText.textContent = label + "NOW! " + name;
+      else if (mins < 60) bubbleText.textContent = label + "in " + mins + "m: " + name;
+      else {
+        var h = Math.floor(mins / 60);
+        var m = mins % 60;
+        bubbleText.textContent = label + "in " + h + "h" + (m > 0 ? m + "m" : "") + ": " + name;
+      }
+      speechBubble.classList.add("alert");
+      bubbleText.style.color = "#FFD700";
+      setExpression("worried");
+      speechBubble.style.display = "block";
+      clearTimeout(calendarDismissTimer);
+      calendarDismissTimer = setTimeout(function() {
+        calendarReminder = null;
+        speechBubble.classList.remove("alert");
+        var comebacks = [
+          "anyway, where were we...",
+          "right, back to business",
+          "ok so... what were you doing?",
+          "sorry, what was I saying?",
+          "ahem. as I was saying...",
+          "moving on...",
+          "that's future you's problem"
+        ];
+        bubbleText.textContent = comebacks[Math.floor(Math.random() * comebacks.length)];
+        bubbleText.style.color = "#ccc";
+        setExpression("default");
+        setTimeout(function() { speechBubble.style.display = "none"; }, 4000);
+      }, 10000);
+    });
+
+    // ── Chat modes ──
+    function activateIncognito(wv) {
+      wv.addEventListener("did-finish-load", function handler() {
+        // Wait for page to fully render, then click the incognito toggle
+        setTimeout(() => {
+          wv.executeJavaScript(`
+            (function() {
+              // Method 1: Look for the incognito toggle button in the UI
+              var allButtons = document.querySelectorAll('button, [role="button"], [role="switch"]');
+              for (var i = 0; i < allButtons.length; i++) {
+                var el = allButtons[i];
+                var text = (el.textContent || '').toLowerCase();
+                var ariaLabel = (el.getAttribute('aria-label') || '').toLowerCase();
+                if (text.includes('incognito') || ariaLabel.includes('incognito') ||
+                    text.includes('temporary') || ariaLabel.includes('temporary')) {
+                  el.click();
+                  return 'clicked-toggle';
+                }
+              }
+              // Method 2: Look for a menu item or link
+              var links = document.querySelectorAll('a, [role="menuitem"]');
+              for (var i = 0; i < links.length; i++) {
+                var text = (links[i].textContent || '').toLowerCase();
+                if (text.includes('incognito') || text.includes('temporary')) {
+                  links[i].click();
+                  return 'clicked-link';
+                }
+              }
+              return 'not-found';
+            })();
+          `).then(r => console.log('Incognito result:', r)).catch(() => {});
+        }, 1500);
+        wv.removeEventListener("did-finish-load", handler);
+      });
+    }
+
+    function setMode(isQuick) {
+      quickMode = isQuick;
+      if (isQuick) {
+        claudeWebview.style.display = "none";
+        quickWebview.style.display = "flex";
+        // Fresh incognito chat each time
+        quickWebview.src = "https://claude.ai/new";
+        activateIncognito(quickWebview);
+        chatContainer.classList.add("quick-mode");
+        statusDot.classList.add("quick");
+        statusLabel.textContent = "joe (incognito)";
+      } else {
+        quickWebview.style.display = "none";
+        claudeWebview.style.display = "flex";
+        chatContainer.classList.remove("quick-mode");
+        statusDot.classList.remove("quick");
+        statusLabel.textContent = "joe";
+      }
+    }
+
+    function openChat(isQuick) {
+      setMode(!!isQuick);
+      if (!chatOpen) {
+        chatOpen = true;
+        chatContainer.classList.add("open");
+        speechBubble.style.display = "none";
+
+      }
+    }
+
+    function closeChat() {
+      chatOpen = false;
+      chatContainer.classList.remove("open");
+      chatContainer.classList.remove("quick-mode");
+      if (walkieOpen) {
+
+      } else {
+        speechBubble.style.display = "block";
+
+      }
+      if (quickMode) {
+        quickWebview.src = "about:blank";
+      }
+    }
+
+    character.addEventListener("click", (e) => {
+      // Secret trillo: shift+click
+      if (e.shiftKey && walkieReady) {
+        sendWalkieMessage("", "trillo");
+        playTrilloSound();
+        return;
+      }
+      if (chatOpen) {
+        closeChat();
+      } else {
+        openChat(false);
+      }
+    });
+
+    document.getElementById("close-btn").addEventListener("click", closeChat);
+
+    document.getElementById("screenshot-btn").addEventListener("click", () => {
+      window.electronAPI.takeScreenshot();
+    });
+
+    // Ctrl+Q = quick incognito chat
+    window.electronAPI.onQuickChat(() => {
+      if (chatOpen && quickMode) {
+        closeChat();
+      } else {
+        openChat(true);
+      }
+    });
+
+    // Screenshot paste
+    window.electronAPI.onOpenChatAndPaste(() => {
+      if (!chatOpen) openChat(false);
+      var wv = quickMode ? quickWebview : claudeWebview;
+      setTimeout(() => {
+        wv.focus();
+        setTimeout(() => {
+          wv.executeJavaScript(`
+            (function() {
+              var el = document.querySelector('[contenteditable="true"]')
+                || document.querySelector('div[role="textbox"]')
+                || document.querySelector('.ProseMirror')
+                || document.querySelector('textarea')
+                || document.querySelector('[data-placeholder]');
+              if (el) { el.focus(); el.click(); }
+            })();
+          `).then(() => {
+            setTimeout(() => { wv.paste(); }, 400);
+          }).catch(() => {
+            setTimeout(() => { wv.paste(); }, 400);
+          });
+        }, 300);
+      }, 600);
+    });
+    // ── Expressions ──
+    // Moods: happy, smirk, worried, suspicious, sad, neutral
+    const EXPRESSION = {
+      mouth: {
+        happy:      "M28 46 Q35 53 42 46",    // big smile
+        smirk:      "M29 47 Q35 50 41 46",    // one side up
+        worried:    "M29 49 Q35 46 41 49",    // slight frown
+        suspicious: "M30 48 L40 48",           // flat line
+        sad:        "M29 50 Q35 45 41 50",    // frown
+        neutral:    "M28 46 Q35 53 42 46",    // default smile
+      },
+      leftBrow: {
+        happy:      { d: "M19 28 Q22 25 28 27", opacity: "1" },
+        smirk:      { d: "M19 28 Q22 26 28 28", opacity: "1" },
+        worried:    { d: "M19 26 Q22 28 28 27", opacity: "1" },
+        suspicious: { d: "M19 27 Q22 24 28 27", opacity: "1" },
+        sad:        { d: "M19 26 Q22 28 28 26", opacity: "1" },
+        neutral:    { d: "M19 28 Q22 26 28 28", opacity: "0" },
+      },
+      rightBrow: {
+        happy:      { d: "M42 27 Q45 25 48 28", opacity: "1" },
+        smirk:      { d: "M42 26 Q45 24 48 27", opacity: "1" },
+        worried:    { d: "M42 27 Q45 28 48 26", opacity: "1" },
+        suspicious: { d: "M42 27 Q45 24 48 27", opacity: "1" },
+        sad:        { d: "M42 26 Q45 28 48 26", opacity: "1" },
+        neutral:    { d: "M42 28 Q45 26 48 28", opacity: "0" },
+      },
+      eyeSize: {
+        happy: 5.5, smirk: 6, worried: 7, suspicious: 4.5, sad: 5.5, neutral: 6,
+      }
+    };
+
+    function setExpression(mood) {
+      var m = mood || "neutral";
+      document.getElementById("mouth").setAttribute("d", EXPRESSION.mouth[m]);
+      var lb = EXPRESSION.leftBrow[m];
+      var rb = EXPRESSION.rightBrow[m];
+      document.getElementById("left-brow").setAttribute("d", lb.d);
+      document.getElementById("left-brow").setAttribute("opacity", lb.opacity);
+      document.getElementById("right-brow").setAttribute("d", rb.d);
+      document.getElementById("right-brow").setAttribute("opacity", rb.opacity);
+      // Eye size
+      var es = EXPRESSION.eyeSize[m];
+      document.querySelectorAll("#left-eye > circle:first-child, #right-eye > circle:first-child").forEach(function(c) {
+        c.setAttribute("r", es);
+      });
+    }
+
+    // Map phrases to moods
+    function getMoodForPhrase(phrase) {
+      var p = phrase.toLowerCase();
+      // Suspicious / judging
+      if (p.includes("watching") || p.includes("I see") || p.includes("saw") || p.includes("judging") ||
+          p.includes("interesting") || p.includes("sure about") || p.includes("wouldn't") ||
+          p.includes("hmm") || p.includes("really?") || p.includes("is that") ||
+          p.includes("I have opinions") || p.includes("that's a choice") || p.includes("bold")) return "suspicious";
+      // Worried / concerned
+      if (p.includes("careful") || p.includes("scary") || p.includes("exhausting") ||
+          p.includes("bug") || p.includes("deep breath") || p.includes("yikes") ||
+          p.includes("brave") || p.includes("you sure")) return "worried";
+      // Smirk / mischievous
+      if (p.includes("dare") || p.includes("I dare") || p.includes("betrayal") ||
+          p.includes("jealous") || p.includes("cheating") || p.includes("other guy") ||
+          p.includes("not enough") || p.includes("trillo") || p.includes("miss") ||
+          p.includes("secret") || p.includes("won't help")) return "smirk";
+      // Sad / bored
+      if (p.includes("bored") || p.includes("forgot") || p.includes("wait") ||
+          p.includes("lonely") || p.includes("invited") || p.includes("sigh") ||
+          p.includes("not going anywhere")) return "sad";
+      // Happy / friendly
+      if (p.includes("help") || p.includes("good") || p.includes("nice") ||
+          p.includes("fun") || p.includes("creative") || p.includes("masterpiece") ||
+          p.includes("best life") || p.includes("service") || p.includes("vibing") ||
+          p.includes("tunes") || p.includes("respect")) return "happy";
+      return "neutral";
+    }
+
+    // ── MGS Alert Sound ──
+    function playTrilloSound() {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      // MGS "!" alert: two quick ascending tones
+      function tone(freq, start, dur, vol) {
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = "square";
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+        gain.gain.setValueAtTime(vol || 0.3, ctx.currentTime + start);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + start + dur);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + start);
+        osc.stop(ctx.currentTime + start + dur);
+      }
+      tone(880, 0, 0.12, 0.35);
+      tone(1175, 0.08, 0.15, 0.35);
+      tone(1760, 0.18, 0.3, 0.3);
+    }
+
+    // ── Name (from main process) ──
+    let userName = "";
+
+    window.electronAPI.onSetUsername(function(name) {
+      userName = name;
+      initWalkieFirebase();
+    });
+
+    // IPC for changing name from tray — relaunch onboarding
+    window.electronAPI.onChangeName && window.electronAPI.onChangeName(() => {
+      // Handled by main process showing onboarding again
+    });
+
+    // ── Walkie Talkie ──
+    let walkieOpen = false;
+    let walkieDB = null;
+    let walkieRoom = "general";
+    let walkieRef = null;
+    let walkiePresenceRef = null;
+    let walkieListener = null;
+    let walkieReady = false;
+    let customRooms = JSON.parse(localStorage.getItem("joe-rooms") || "[]");
+
+    const walkieContainer = document.getElementById("walkie-container");
+    const roomSelect = document.getElementById("walkie-room-select");
+
+    // Populate saved rooms
+    customRooms.forEach(function(r) {
+      var opt = document.createElement("option");
+      opt.value = r; opt.textContent = r;
+      roomSelect.appendChild(opt);
+    });
+
+    // Right-click character to open walkie
+    character.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      if (walkieOpen) {
+        closeWalkie();
+      } else {
+        openWalkie();
+      }
+    });
+
+    function openWalkie() {
+      walkieOpen = true;
+      walkieContainer.classList.add("open");
+      speechBubble.style.display = "none";
+      // Only resize if chat isn't open (need space for walkie panel)
+      // window stays fixed size
+    }
+
+    function closeWalkie() {
+      walkieOpen = false;
+      walkieContainer.classList.remove("open");
+      if (!chatOpen) {
+        speechBubble.style.display = "block";
+
+      }
+    }
+
+    document.getElementById("walkie-close").addEventListener("click", closeWalkie);
+
+    // Firebase loader
+    function loadFirebase(callback) {
+      if (window.firebase) { callback(); return; }
+      var s1 = document.createElement("script");
+      s1.src = "https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js";
+      s1.onload = function() {
+        var s2 = document.createElement("script");
+        s2.src = "https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js";
+        s2.onload = callback;
+        document.head.appendChild(s2);
+      };
+      document.head.appendChild(s1);
+    }
+
+    // Load config
+    (function() {
+      var s = document.createElement("script");
+      s.src = "firebase-config.js";
+      document.head.appendChild(s);
+    })();
+
+    // Auto-connect on startup
+    function initWalkieFirebase() {
+      if (!userName) return;
+      setTimeout(function() {
+        if (typeof FIREBASE_CONFIG === "undefined" || !FIREBASE_CONFIG.apiKey) {
+          document.getElementById("walkie-status").textContent = "firebase not configured";
+          document.getElementById("walkie-status").style.color = "#FF6B6B";
+          return;
+        }
+        loadFirebase(function() {
+          if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+          walkieDB = firebase.database();
+          walkieReady = true;
+          joinRoom("general");
+          document.getElementById("walkie-chat").classList.add("active");
+        });
+      }, 500);
+    }
+
+    // initWalkieFirebase is called when username arrives via IPC
+
+    function joinRoom(room) {
+      if (!walkieDB || !userName) return;
+
+      // Cleanup previous room
+      if (walkieRef && walkieListener) {
+        walkieRef.off("child_added", walkieListener);
+      }
+      if (walkiePresenceRef) {
+        walkiePresenceRef.remove();
+      }
+
+      walkieRoom = room;
+      walkieRef = walkieDB.ref("rooms/" + room + "/messages");
+
+      // Presence
+      walkiePresenceRef = walkieDB.ref("rooms/" + room + "/presence/" + userName);
+      walkiePresenceRef.set(true);
+      walkiePresenceRef.onDisconnect().remove();
+
+      // Watch presence
+      walkieDB.ref("rooms/" + room + "/presence").on("value", function(snap) {
+        var users = snap.val() || {};
+        var names = Object.keys(users);
+        var others = names.filter(function(n) { return n !== userName; });
+        var statusEl = document.getElementById("walkie-status");
+        if (others.length > 0) {
+          statusEl.textContent = others.join(", ") + " online";
+          statusEl.className = "walkie-status online";
+        } else {
+          statusEl.textContent = "waiting for friend...";
+          statusEl.className = "walkie-status";
+        }
+      });
+
+      // Listen for new messages
+      walkieListener = walkieRef.orderByChild("ts").limitToLast(1).on("child_added", function(snap) {
+        var msg = snap.val();
+        if (!msg) return;
+        addWalkieMessage(msg);
+
+        // Trillo shake for everyone (including self)
+        if (msg.type === "trillo") {
+          bubbleText.textContent = msg.from + " sent a TRILLO!";
+          bubbleText.style.color = "#FF6B6B";
+          setExpression("smirk");
+          character.style.animation = "charTrillo 0.6s ease";
+          setTimeout(function() { character.style.animation = "charFloat 3s ease-in-out infinite"; setExpression("neutral"); }, 600);
+          window.electronAPI.shakeWindow();
+          playTrilloSound();
+          var appEl = document.getElementById("app");
+          appEl.classList.add("app-shake");
+          setTimeout(function() { appEl.classList.remove("app-shake"); }, 500);
+          if (!walkieOpen) speechBubble.style.display = "block";
+          speechBubble.classList.remove("alert");
+          void speechBubble.offsetWidth;
+          speechBubble.classList.add("alert");
+          // Auto-hide trillo after 5s
+          setTimeout(function() {
+            if (bubbleText.textContent.indexOf("TRILLO") !== -1) {
+              speechBubble.style.display = "none";
+            }
+          }, 5000);
+        }
+
+        if (msg.from !== userName) {
+          if (msg.type !== "trillo" && msg.type === "message") {
+            bubbleText.textContent = msg.from + ": " + msg.text;
+            bubbleText.style.color = "#FFD700";
+            setExpression("happy");
+            character.style.animation = "charBounce 0.5s ease";
+            setTimeout(function() { character.style.animation = "charFloat 3s ease-in-out infinite"; }, 500);
+          }
+          speechBubble.classList.remove("alert");
+          if (!walkieOpen) speechBubble.style.display = "block";
+        }
+      });
+
+      // Load recent history
+      document.getElementById("walkie-messages").innerHTML = "";
+      walkieRef.orderByChild("ts").limitToLast(20).once("value", function(snap) {
+        document.getElementById("walkie-messages").innerHTML = "";
+        snap.forEach(function(child) { addWalkieMessage(child.val()); });
+      });
+    }
+
+    // Room selector
+    roomSelect.addEventListener("change", function() {
+      joinRoom(this.value);
+    });
+
+    // Add room button
+    var addingRoom = false;
+    var newRoomInput = document.getElementById("walkie-new-room");
+    document.getElementById("walkie-add-room").addEventListener("click", function() {
+      if (!addingRoom) {
+        addingRoom = true;
+        newRoomInput.style.display = "block";
+        roomSelect.style.display = "none";
+        newRoomInput.focus();
+        this.textContent = "ok";
+      } else {
+        var val = newRoomInput.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
+        if (val && val !== "general") {
+          if (!customRooms.includes(val)) {
+            customRooms.push(val);
+            localStorage.setItem("joe-rooms", JSON.stringify(customRooms));
+            var opt = document.createElement("option");
+            opt.value = val; opt.textContent = val;
+            roomSelect.appendChild(opt);
+          }
+          roomSelect.value = val;
+          joinRoom(val);
+        }
+        addingRoom = false;
+        newRoomInput.style.display = "none";
+        newRoomInput.value = "";
+        roomSelect.style.display = "block";
+        this.textContent = "+";
+      }
+    });
+
+    newRoomInput.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") document.getElementById("walkie-add-room").click();
+    });
+
+    function addWalkieMessage(msg) {
+      var messagesDiv = document.getElementById("walkie-messages");
+      var div = document.createElement("div");
+      div.className = "walkie-msg";
+      if (msg.type === "trillo") {
+        div.className += " trillo";
+        div.textContent = "~ " + msg.from + " sent a trillo ~";
+      } else {
+        if (msg.from === userName) div.className += " mine";
+        div.textContent = (msg.from === userName ? "" : msg.from + ": ") + msg.text;
+      }
+      messagesDiv.appendChild(div);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    function sendWalkieMessage(text, type) {
+      if (!walkieRef || !userName) return;
+      walkieRef.push({
+        from: userName,
+        text: text || "",
+        type: type || "message",
+        ts: firebase.database.ServerValue.TIMESTAMP
+      });
+    }
+
+    document.getElementById("walkie-send").addEventListener("click", function() {
+      var input = document.getElementById("walkie-input");
+      var text = input.value.trim();
+      if (!text) return;
+      sendWalkieMessage(text, "message");
+      input.value = "";
+    });
+
+    document.getElementById("walkie-input").addEventListener("keydown", function(e) {
+      if (e.key === "Enter") document.getElementById("walkie-send").click();
+    });
+
+  </script>
+</body>
+</html>

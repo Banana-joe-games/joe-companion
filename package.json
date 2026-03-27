@@ -1,0 +1,30 @@
+{
+  "name": "clippy-claude",
+  "version": "2.0.0",
+  "description": "Joe — a sassy banana companion that floats on your macOS desktop",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --mac --dir"
+  },
+  "build": {
+    "appId": "com.bananajoe.clippy-claude",
+    "productName": "Clippy Claude",
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": ["dmg"]
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "shell.html",
+      "onboarding.html",
+      "firebase-config.js",
+      "cal-helper"
+    ]
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}
