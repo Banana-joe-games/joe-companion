@@ -595,8 +595,9 @@
     });
 
     var moduleDialogActive = false;
+    var bubbleHideTimer = null;
 
-    function showBubble(ctx) {
+    function showBubble(ctx, phrase) {
       if (chatOpen) return;
       // Module dialogs and calendar have priority over flavor text
       if (moduleDialogActive) return;
@@ -604,25 +605,73 @@
         showCalendarBubble();
         return;
       }
-      var phrases = CONTEXT_PHRASES[ctx] || CONTEXT_PHRASES.default;
-      var phrase = phrases[Math.floor(Math.random() * phrases.length)];
+
+      // Use provided phrase or pick a random hardcoded one
+      if (!phrase) {
+        var phrases = CONTEXT_PHRASES[ctx] || CONTEXT_PHRASES.default;
+        phrase = phrases[Math.floor(Math.random() * phrases.length)];
+      }
+
       bubbleText.textContent = phrase;
       speechBubble.classList.remove("alert");
       bubbleText.style.color = "#777";
+      speechBubble.style.display = "block";
       setExpression(getMoodForPhrase(phrase));
       character.style.animation = "charBounce 0.5s ease";
       setTimeout(() => character.style.animation = "charFloat 3s ease-in-out infinite", 500);
+
+      // Auto-hide after 4-5 seconds
+      clearTimeout(bubbleHideTimer);
+      var delay = 4000 + Math.random() * 1000;
+      bubbleHideTimer = setTimeout(function() {
+        if (!moduleDialogActive && !calendarReminder && !chatOpen) {
+          speechBubble.style.display = "none";
+        }
+      }, delay);
     }
+
+    var lastAppName = "";
+    var lastWinTitle = "";
 
     window.electronAPI.onActiveContext((data) => {
       const app = data.appName || "";
       const title = data.winTitle || "";
+      lastAppName = app;
+      lastWinTitle = title;
       const newContext = detectContext(app, title);
       if (newContext !== activeContext) {
         activeContext = newContext;
-        showBubble(newContext);
+        // Request AI phrase only — fallback to hardcoded if API is slow
+        window.electronAPI.requestJoePhrase(newContext, app, title);
+        // Show hardcoded after 2s if AI hasn't responded yet
+        var fallbackCtx = newContext;
+        setTimeout(function() {
+          if (speechBubble.style.display === "none" || speechBubble.style.display === "") {
+            showBubble(fallbackCtx);
+          }
+        }, 2000);
       }
     });
+
+    // AI-generated phrase arrives
+    window.electronAPI.onJoePhrase((phrase) => {
+      if (chatOpen || moduleDialogActive || calendarReminder) return;
+      showBubble(activeContext, phrase);
+    });
+
+    // Idle phrases: random comment every 2-5 min even if staying on same app
+    var idleTimer = null;
+    function scheduleIdlePhrase() {
+      clearTimeout(idleTimer);
+      var delay = (120 + Math.random() * 180) * 1000; // 2-5 min
+      idleTimer = setTimeout(function() {
+        if (!chatOpen && !moduleDialogActive && !calendarReminder) {
+          window.electronAPI.requestJoePhrase(activeContext, lastAppName, lastWinTitle);
+        }
+        scheduleIdlePhrase();
+      }, delay);
+    }
+    scheduleIdlePhrase();
 
     var calendarEvents = [];
     var calendarCycleIndex = 0;
@@ -1229,6 +1278,29 @@
       setExpression("happy");
       character.style.animation = "charBounce 0.5s ease";
       setTimeout(function() { character.style.animation = "charFloat 3s ease-in-out infinite"; }, 500);
+    });
+
+    // ── Screenshot detected on Desktop ──
+    window.electronAPI.onScreenshotDetected && window.electronAPI.onScreenshotDetected(function(data) {
+      showModuleDialog("screenshot! what do?", [
+        {
+          label: "copy & paste",
+          action: function() {
+            window.electronAPI.screenshotCopyDelete(data.filePath);
+          }
+        },
+        {
+          label: "move it",
+          action: function() {
+            window.electronAPI.screenshotMove(data.filePath);
+          }
+        },
+        {
+          label: "leave it",
+          action: function() { /* file stays on desktop */ }
+        }
+      ]);
+      setExpression("surprised");
     });
 
     // Module dialog helper — replaces flavor bubble, takes priority

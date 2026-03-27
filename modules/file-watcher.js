@@ -58,6 +58,9 @@ function start(win) {
     try {
       const w = fs.watch(dir, (eventType, filename) => {
         if (eventType !== "rename" || !filename || filename.startsWith(".")) return;
+        // Skip screenshots on Desktop — handled by screenshot watcher in main.js
+        const fnLower = filename.toLowerCase();
+        if ((fnLower.startsWith("screenshot") || fnLower.startsWith("schermata") || fnLower.startsWith("capture")) && (fnLower.endsWith(".png") || fnLower.endsWith(".jpg"))) return;
         const filePath = path.join(dir, filename);
         // Small delay to let file finish writing, then check it exists and is a file
         setTimeout(() => {

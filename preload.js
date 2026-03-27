@@ -66,6 +66,20 @@ contextBridge.exposeInMainWorld("electronAPI", {
   onShowBubble: (callback) =>
     ipcRenderer.on("show-bubble", (event, text) => callback(text)),
 
+  // Screenshot watcher
+  onScreenshotDetected: (callback) =>
+    ipcRenderer.on("screenshot-detected", (event, data) => callback(data)),
+  screenshotCopyDelete: (filePath) =>
+    ipcRenderer.send("screenshot-copy-delete", filePath),
+  screenshotMove: (filePath) =>
+    ipcRenderer.send("screenshot-move", filePath),
+
+  // Joe personality
+  requestJoePhrase: (context, app, title) =>
+    ipcRenderer.send("joe-phrase-request", context, app, title),
+  onJoePhrase: (callback) =>
+    ipcRenderer.on("joe-phrase", (event, phrase) => callback(phrase)),
+
   saveApiKey: (key) =>
     ipcRenderer.send("save-api-key", key),
 });

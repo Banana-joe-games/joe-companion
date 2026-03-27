@@ -11,6 +11,7 @@ const fileWatcher = require("./modules/file-watcher");
 const emailMonitor = require("./modules/email-monitor");
 const gmailMonitor = require("./modules/gmail-monitor");
 const { getConfig } = require("./modules/config");
+const joePersonality = require("./modules/joe-personality");
 
 let mainWindow = null;
 let tray = null;
@@ -109,7 +110,7 @@ function createTray() {
       click: () => openQuickChat(),
     },
     {
-      label: "Screenshot to Chat  (Cmd+Shift+S)",
+      label: "Screenshot to Chat  (Ctrl+S)",
       click: () => takeScreenshot(),
     },
     { type: "separator" },
@@ -161,6 +162,81 @@ function takeScreenshot() {
     });
   }, 300);
 }
+
+// ── Screenshot Watcher: detect new screenshots on Desktop ──
+let screenshotWatcher = null;
+const desktopPath = path.join(os.homedir(), "Desktop");
+
+function startScreenshotWatcher() {
+  // Watch for new files on Desktop matching screenshot patterns
+  const seenFiles = new Set();
+  // Seed with existing files so we don't trigger on old ones
+  try {
+    fs.readdirSync(desktopPath).forEach(f => seenFiles.add(f));
+  } catch(e) {}
+
+  screenshotWatcher = setInterval(() => {
+    try {
+      const files = fs.readdirSync(desktopPath);
+      for (const f of files) {
+        if (seenFiles.has(f)) continue;
+        seenFiles.add(f);
+        // Match macOS screenshot patterns: "Screenshot", "Schermata", "Capture d'écran", etc.
+        const lower = f.toLowerCase();
+        if ((lower.startsWith("screenshot") || lower.startsWith("schermata") || lower.startsWith("capture")) && (lower.endsWith(".png") || lower.endsWith(".jpg"))) {
+          const filePath = path.join(desktopPath, f);
+          // Small delay to make sure file is fully written
+          setTimeout(() => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send("screenshot-detected", { fileName: f, filePath });
+            }
+          }, 500);
+        }
+      }
+    } catch(e) {}
+  }, 2000);
+}
+
+// IPC: copy screenshot to clipboard and delete file
+ipcMain.on("screenshot-copy-delete", (event, filePath) => {
+  try {
+    const img = nativeImage.createFromPath(filePath);
+    if (!img.isEmpty()) {
+      const { clipboard } = require("electron");
+      clipboard.writeImage(img);
+      fs.unlinkSync(filePath);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("show-bubble", "copied, cmd+v to paste");
+      }
+    }
+  } catch(e) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("show-bubble", "oops, couldn't copy that");
+    }
+  }
+});
+
+ipcMain.on("screenshot-move", (event, filePath) => {
+  const { dialog } = require("electron");
+  dialog.showOpenDialog(mainWindow, {
+    title: "Move screenshot to...",
+    defaultPath: os.homedir(),
+    properties: ["openDirectory"],
+  }).then(result => {
+    if (result.canceled || !result.filePaths.length) return;
+    try {
+      const dest = path.join(result.filePaths[0], path.basename(filePath));
+      fs.renameSync(filePath, dest);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("show-bubble", "moved!");
+      }
+    } catch(e) {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("show-bubble", "couldn't move it");
+      }
+    }
+  });
+});
 
 // ── Quick Chat ──
 function openQuickChat() {
@@ -236,6 +312,12 @@ ipcMain.on("open-folder-picker", (event, filePath, projectId) => {
 // });
 ipcMain.on("email-response", (event, action) => {
   emailMonitor.handleResponse(action);
+});
+ipcMain.on("joe-phrase-request", async (event, context, app, title) => {
+  const phrase = await joePersonality.generatePhrase(context, app, title);
+  if (phrase && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("joe-phrase", phrase);
+  }
 });
 ipcMain.on("email-check-now", () => {
   emailMonitor.manualCheck();
@@ -317,6 +399,7 @@ app.whenReady().then(() => {
   function startApp(name) {
     createWindow();
     createTray();
+    joePersonality.setUserName(name);
     // Send name to renderer
     mainWindow.webContents.on("did-finish-load", () => {
       mainWindow.webContents.send("set-username", name);
@@ -327,15 +410,25 @@ app.whenReady().then(() => {
       else mainWindow.show();
     });
 
-    globalShortcut.register("CommandOrControl+Shift+S", () => takeScreenshot());
+    globalShortcut.register("Control+S", () => takeScreenshot());
 
     globalShortcut.register("Control+Q", () => openQuickChat());
 
     globalShortcut.register("Control+A", () => checkCalendar());
 
+    globalShortcut.register("Control+M", () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("gmail-checking");
+        gmailMonitor.runMorningCheck();
+      }
+    });
+
     // Check active window every 3 seconds
     setTimeout(checkActiveWindow, 2000);
     setInterval(checkActiveWindow, 3000);
+
+    // Watch Desktop for new screenshots
+    startScreenshotWatcher();
 
     // Auto-update: check on launch, then every 4 hours
     autoUpdater.autoDownload = true;
@@ -348,7 +441,7 @@ app.whenReady().then(() => {
     mainWindow.webContents.on("did-finish-load", () => {
       if (modConfig.modules?.fileWatcher !== false) fileWatcher.start(mainWindow);
       // clipboardMonitor disabled
-      if (modConfig.modules?.emailMonitor !== false) emailMonitor.start(mainWindow);
+      // emailMonitor disabled — using gmail-monitor instead (manual only)
       const hasOAuth = fs.existsSync(path.join(require("./modules/config").CONFIG_DIR, "gmail-oauth.json"));
       if (hasOAuth && modConfig.modules?.gmailMonitor !== false) gmailMonitor.start(mainWindow);
     });
@@ -369,5 +462,8 @@ autoUpdater.on("update-downloaded", (info) => {
   setTimeout(() => autoUpdater.quitAndInstall(false, true), 10000);
 });
 
-app.on("will-quit", () => globalShortcut.unregisterAll());
+app.on("will-quit", () => {
+  globalShortcut.unregisterAll();
+  joePersonality.shutdown();
+});
 app.on("window-all-closed", () => app.quit());

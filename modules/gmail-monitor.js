@@ -570,25 +570,7 @@ function sendToRenderer(channel, data) {
 
 function start(win) {
   mainWindow = win;
-  log("Gmail Monitor started");
-
-  // Auto-authorize if no tokens exist
-  const tokens = loadTokens();
-  if (tokens.length === 0) {
-    log("Gmail: no accounts authorized, starting OAuth flow...");
-    authorize().then(() => {
-      log("Gmail: first account authorized successfully");
-    }).catch(err => {
-      log("Gmail: auto-authorize failed: " + err.message);
-    });
-  }
-
-  // Morning check: poll every 60s
-  morningPollInterval = setInterval(() => checkMorningActivity(), 60000);
-  // Fire shortly after startup
-  setTimeout(() => checkMorningActivity(), 10000);
-
-  // Periodic check disabled — only morning check + manual "Check Gmail" from tray
+  log("Gmail Monitor started (manual only — use tray or Ctrl+M)");
 }
 
 function stop() {
