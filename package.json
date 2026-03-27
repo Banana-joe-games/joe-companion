@@ -13,7 +13,10 @@
     "productName": "Clippy Claude",
     "mac": {
       "category": "public.app-category.productivity",
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "identity": "Andrea Deotto (3A45BSS4QX)",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
@@ -44,6 +47,7 @@
     "electron-builder": "^25.0.0"
   },
   "dependencies": {
-    "electron-updater": "^6.8.3"
+    "electron-updater": "^6.8.3",
+    "googleapis": "^171.4.0"
   }
 }

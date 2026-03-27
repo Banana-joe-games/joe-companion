@@ -124,7 +124,7 @@
     nameGo.addEventListener("click", done);
 
     function done() {
-      ipcRenderer.send("onboarding-done", { name: nameInput.value.trim(), openPerms: false });
+      ipcRenderer.send("onboarding-done", { name: nameInput.value.trim() });
     }
   </script>
 </body>

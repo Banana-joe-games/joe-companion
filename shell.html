@@ -594,9 +594,12 @@
       }
     });
 
+    var moduleDialogActive = false;
+
     function showBubble(ctx) {
       if (chatOpen) return;
-      // Calendar has priority
+      // Module dialogs and calendar have priority over flavor text
+      if (moduleDialogActive) return;
       if (calendarReminder) {
         showCalendarBubble();
         return;
@@ -932,6 +935,363 @@
       // Handled by main process showing onboarding again
     });
 
+    // ── Module Notifications ──
+
+    // File Watcher — loading indicator (fires immediately, before API responds)
+    window.electronAPI.onFileWatcherLoading && window.electronAPI.onFileWatcherLoading(function(data) {
+      if (chatOpen) return;
+      var loadingPhrases = [
+        "hmm let me see... 🤔",
+        "one sec, checking...",
+        "what did you download?",
+        "hold on, thinking...",
+        "let me take a look...",
+      ];
+      var msg = loadingPhrases[Math.floor(Math.random() * loadingPhrases.length)];
+      bubbleText.textContent = msg;
+      speechBubble.classList.remove("alert");
+      bubbleText.style.color = "#aaa";
+      speechBubble.style.display = "block";
+      setExpression("worried");
+    });
+
+    // File Watcher — step-based flow
+    window.electronAPI.onFileWatcherStep && window.electronAPI.onFileWatcherStep(function(data) {
+      switch(data.step) {
+
+        case "identify":
+          // Step 1: Joe suggests a project (AI always picks one now)
+          var desc = data.imageDescription || data.reason || "";
+          if (data.projectId && data.projectId !== "none") {
+            var conf = data.confidence;
+            var msg = conf === "low"
+              ? "could this be " + data.projectName + " stuff?"
+              : "looks like " + data.projectName + " stuff, right?";
+            showModuleDialog(msg, [
+              { label: "Si", action: function() {
+                window.electronAPI.fileWatcherResponse("confirm-project", { filePath: data.filePath, projectId: data.projectId, filename: data.filename, description: desc });
+              }},
+              { label: "No", action: function() {
+                window.electronAPI.fileWatcherResponse("wrong-project", { filePath: data.filePath, filename: data.filename, description: desc });
+              }},
+              { label: "Leave it", action: function() {
+                window.electronAPI.fileWatcherResponse("leave");
+                showFeedbackBubble("got it, leaving it alone 👍");
+              }},
+              { label: "\u{1F5D1}", action: function() {
+                window.electronAPI.fileWatcherResponse("trash", { filePath: data.filePath });
+              }},
+            ]);
+          } else {
+            showModuleDialog("can't figure out which project this is. whose is it?", [
+              { label: "Pick...", action: function() {
+                window.electronAPI.fileWatcherResponse("wrong-project", { filePath: data.filePath, filename: data.filename, description: desc });
+              }},
+              { label: "Leave it", action: function() {
+                window.electronAPI.fileWatcherResponse("leave");
+                showFeedbackBubble("got it, leaving it alone 👍");
+              }},
+              { label: "\u{1F5D1}", action: function() {
+                window.electronAPI.fileWatcherResponse("trash", { filePath: data.filePath });
+              }},
+            ]);
+          }
+          break;
+
+        case "pick-project":
+          // Step 2: Show project list
+          var pickDesc = data.description || "";
+          var btns = data.allProjects.map(function(p) {
+            return { label: p.name, action: function() {
+              window.electronAPI.fileWatcherResponse("pick-project", { filePath: data.filePath, projectId: p.id, description: pickDesc });
+            }};
+          });
+          btns.push({ label: "Other...", action: function() { showNewProjectInput(data.filePath); } });
+          btns.push({ label: "Leave it", action: function() { window.electronAPI.fileWatcherResponse("leave"); showFeedbackBubble("got it, leaving it alone 👍"); } });
+          btns.push({ label: "\u{1F5D1}", action: function() { window.electronAPI.fileWatcherResponse("trash", { filePath: data.filePath }); } });
+          showModuleDialog("which project?", btns);
+          break;
+
+        case "confirm-move":
+          // Step 3a: Known folder — confirm move
+          showModuleDialog("move it to " + data.folderName + "?", [
+            { label: "Si", action: function() {
+              window.electronAPI.fileWatcherResponse("set-folder", { filePath: data.filePath, projectId: data.projectId, folderPath: data.folderPath });
+            }},
+            { label: "Other folder", action: function() {
+              window.electronAPI.openFolderPicker(data.filePath, data.projectId);
+            }},
+            { label: "Leave it", action: function() { window.electronAPI.fileWatcherResponse("leave"); showFeedbackBubble("got it, leaving it alone 👍"); } },
+          ]);
+          break;
+
+        case "pick-folder":
+          // Step 3b: Unknown folder — ask user to pick
+          showModuleDialog("where should I put " + data.projectName + " files?", [
+            { label: "Pick folder", action: function() {
+              window.electronAPI.openFolderPicker(data.filePath, data.projectId);
+            }},
+            { label: "Leave it", action: function() { window.electronAPI.fileWatcherResponse("leave"); showFeedbackBubble("got it, leaving it alone 👍"); } },
+          ]);
+          break;
+      }
+    });
+
+    function showNewProjectInput(filePath) {
+      var old = document.getElementById("module-dialog");
+      if (old) old.remove();
+
+      var dialog = document.createElement("div");
+      dialog.id = "module-dialog";
+      dialog.style.cssText = "position:fixed; bottom:120px; right:20px; background:rgba(20,20,20,0.95); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:14px 16px; max-width:280px; z-index:9000; font-size:12px; color:#ccc; backdrop-filter:blur(20px);";
+
+      var label = document.createElement("div");
+      label.textContent = "Come si chiama il progetto?";
+      label.style.marginBottom = "10px";
+      dialog.appendChild(label);
+
+      var input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = "nome progetto...";
+      input.style.cssText = "width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); color:#fff; padding:8px 10px; border-radius:6px; font-size:12px; font-family:inherit; outline:none; margin-bottom:10px;";
+      dialog.appendChild(input);
+
+      var btnRow = document.createElement("div");
+      btnRow.style.cssText = "display:flex; gap:6px;";
+
+      var okBtn = document.createElement("button");
+      okBtn.textContent = "Ok";
+      okBtn.style.cssText = "background:rgba(255,215,0,0.3); border:1px solid rgba(255,215,0,0.4); color:#FFD700; padding:6px 16px; border-radius:6px; font-size:11px; cursor:pointer; font-family:inherit;";
+      okBtn.addEventListener("click", function() {
+        var name = input.value.trim();
+        if (name) {
+          dialog.remove();
+          window.electronAPI.fileWatcherResponse("new-project", { filePath: filePath, projectName: name });
+        }
+      });
+      btnRow.appendChild(okBtn);
+
+      var cancelBtn = document.createElement("button");
+      cancelBtn.textContent = "Annulla";
+      cancelBtn.style.cssText = "background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); color:#888; padding:6px 12px; border-radius:6px; font-size:11px; cursor:pointer; font-family:inherit;";
+      cancelBtn.addEventListener("click", function() { dialog.remove(); window.electronAPI.fileWatcherResponse("leave"); });
+      btnRow.appendChild(cancelBtn);
+
+      dialog.appendChild(btnRow);
+      document.getElementById("app").appendChild(dialog);
+      setTimeout(function() { input.focus(); }, 100);
+    }
+
+    // Clipboard suggestion
+    window.electronAPI.onClipboardSuggestion && window.electronAPI.onClipboardSuggestion(function(data) {
+      showModuleDialog(data.message, [
+        { label: "Yes", action: function() { window.electronAPI.clipboardResponse("remind", data); } },
+        { label: "No", action: function() { window.electronAPI.clipboardResponse("ignore"); } },
+      ]);
+    });
+
+    // Email alert
+    window.electronAPI.onEmailAlert && window.electronAPI.onEmailAlert(function(data) {
+      var msg = "mail from " + data.sender + ': "' + data.subject + '". check it out?';
+      showModuleDialog(msg, [
+        { label: "Open Mail", action: function() { window.electronAPI.emailResponse("open"); } },
+        { label: "Later", action: function() { window.electronAPI.emailResponse("ignore"); showFeedbackBubble("ok, i'll remind you next time!"); } },
+      ]);
+    });
+
+    // Unreplied emails
+    window.electronAPI.onUnrepliedEmails && window.electronAPI.onUnrepliedEmails(function(data) {
+      var msg = "good morning! you have " + data.count + " unreplied email" + (data.count > 1 ? "s" : "") + " this week. check them out?";
+      showModuleDialog(msg, [
+        { label: "Open Mail", action: function() { window.electronAPI.emailResponse("open"); } },
+        { label: "Later", action: function() { window.electronAPI.emailResponse("ignore"); showFeedbackBubble("ok, i'll remind you next time!"); } },
+      ]);
+    });
+
+    // Gmail checking indicator — stays until report arrives
+    window.electronAPI.onGmailChecking && window.electronAPI.onGmailChecking(function() {
+      speechBubble.style.display = "block";
+      speechBubble.style.opacity = "1";
+      bubbleText.textContent = "checking your emails... 📬";
+      bubbleText.style.color = "#FFD700";
+    });
+
+    // Gmail morning report
+    window.electronAPI.onGmailMorningReport && window.electronAPI.onGmailMorningReport(function(emails) {
+      if (!emails || emails.length === 0) {
+        showFeedbackBubble("all clear, no unreplied emails! 🎉");
+        return;
+      }
+      // Show custom email list dialog with ignore buttons
+      var old = document.getElementById("module-dialog");
+      if (old) old.remove();
+      moduleDialogActive = true;
+      speechBubble.style.display = "none";
+      speechBubble.style.opacity = "0";
+
+      var dialog = document.createElement("div");
+      dialog.id = "module-dialog";
+      dialog.style.cssText = "position:fixed; bottom:120px; right:20px; background:rgba(20,20,20,0.95); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:14px 16px; max-width:300px; z-index:9000; font-size:12px; color:#ccc; backdrop-filter:blur(20px);";
+
+      var title = document.createElement("div");
+      var bjgCount = emails.filter(function(e) { return (e.account || "").indexOf("bananajoe") !== -1; }).length;
+      var n51Count = emails.filter(function(e) { return (e.account || "").indexOf("numerocinquantuno") !== -1; }).length;
+      var countParts = [];
+      if (bjgCount > 0) countParts.push("🍌 " + bjgCount);
+      if (n51Count > 0) countParts.push("🖼️ " + n51Count);
+      var countStr = countParts.length > 0 ? " (" + countParts.join(" · ") + ")" : "";
+      title.textContent = "morning! " + emails.length + " unreplied email" + (emails.length > 1 ? "s" : "") + " this week" + countStr + ":";
+      title.style.marginBottom = "10px";
+      dialog.appendChild(title);
+
+      var emailList = document.createElement("div");
+      emailList.style.cssText = "max-height:300px; overflow-y:auto; margin-bottom:4px;";
+      dialog.appendChild(emailList);
+
+      emails.forEach(function(e) {
+        var row = document.createElement("div");
+        row.style.cssText = "display:flex; align-items:center; gap:6px; margin-bottom:6px;";
+
+        var openBtn = document.createElement("button");
+        var name = (e.from || "").replace(/<.*>/, "").trim().split(" ")[0];
+        var subj = (e.subject || "").substring(0, 25);
+        var acctIcon = (e.account || "").indexOf("bananajoe") !== -1 ? "🍌 " : (e.account || "").indexOf("numerocinquantuno") !== -1 ? "🖼️ " : "";
+        openBtn.textContent = acctIcon + name + ": " + subj;
+        openBtn.style.cssText = "flex:1; text-align:left; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); color:#ccc; padding:5px 8px; border-radius:5px; font-size:10px; cursor:pointer; font-family:inherit; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;";
+        openBtn.addEventListener("mouseenter", function() { openBtn.style.background = "rgba(255,215,0,0.25)"; openBtn.style.color = "#fff"; });
+        openBtn.addEventListener("mouseleave", function() { openBtn.style.background = "rgba(255,255,255,0.08)"; openBtn.style.color = "#ccc"; });
+        openBtn.addEventListener("click", function() { window.electronAPI.gmailOpen(e.threadId, e.account); });
+
+        var ignoreBtn = document.createElement("button");
+        ignoreBtn.textContent = "✕";
+        ignoreBtn.title = "ignore this email";
+        ignoreBtn.style.cssText = "background:rgba(255,80,80,0.15); border:1px solid rgba(255,80,80,0.25); color:#f88; padding:4px 7px; border-radius:5px; font-size:10px; cursor:pointer;";
+        ignoreBtn.addEventListener("mouseenter", function() { ignoreBtn.style.background = "rgba(255,80,80,0.4)"; });
+        ignoreBtn.addEventListener("mouseleave", function() { ignoreBtn.style.background = "rgba(255,80,80,0.15)"; });
+        ignoreBtn.addEventListener("click", function() {
+          window.electronAPI.gmailIgnore(e.threadId);
+          row.style.opacity = "0.3";
+          row.style.textDecoration = "line-through";
+          openBtn.disabled = true;
+          ignoreBtn.disabled = true;
+        });
+
+        row.appendChild(openBtn);
+        row.appendChild(ignoreBtn);
+        emailList.appendChild(row);
+      });
+
+      var btnRow = document.createElement("div");
+      btnRow.style.cssText = "display:flex; gap:6px; margin-top:10px;";
+      var laterBtn = document.createElement("button");
+      laterBtn.textContent = "Later";
+      laterBtn.style.cssText = "background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); color:#ccc; padding:6px 12px; border-radius:6px; font-size:11px; cursor:pointer; font-family:inherit;";
+      laterBtn.addEventListener("click", function() {
+        if (dialog.parentNode) dialog.remove();
+        moduleDialogActive = false;
+        showFeedbackBubble("ok, i'll remind you next time!");
+      });
+      btnRow.appendChild(laterBtn);
+      dialog.appendChild(btnRow);
+
+      document.getElementById("app").appendChild(dialog);
+      setTimeout(function() {
+        if (dialog.parentNode) {
+          dialog.remove();
+          moduleDialogActive = false;
+          showFeedbackBubble("ok, i'll remind you next time!");
+        }
+      }, 60000);
+    });
+
+    // Gmail new important emails
+    window.electronAPI.onGmailNewImportant && window.electronAPI.onGmailNewImportant(function(emails) {
+      if (!emails || emails.length === 0) return;
+      var first = emails[0];
+      var senderName = (first.from || "").replace(/<.*>/, "").trim();
+      var msg = emails.length === 1
+        ? "new gmail from " + senderName + ': "' + (first.subject || "no subject") + '"'
+        : emails.length + " new important gmails. latest from " + senderName;
+      showModuleDialog(msg, [
+        { label: "Open", action: function() { window.electronAPI.gmailOpen(first.threadId); } },
+        { label: "Later", action: function() { showFeedbackBubble("ok, i'll remind you next time!"); } },
+      ]);
+    });
+
+    // Generic bubble from modules — shows raw text directly
+    window.electronAPI.onShowBubble && window.electronAPI.onShowBubble(function(text) {
+      moduleDialogActive = false;
+      bubbleText.textContent = text;
+      speechBubble.classList.remove("alert");
+      bubbleText.style.color = "#aaa";
+      speechBubble.style.display = "block";
+      speechBubble.style.opacity = "1";
+      setExpression("happy");
+      character.style.animation = "charBounce 0.5s ease";
+      setTimeout(function() { character.style.animation = "charFloat 3s ease-in-out infinite"; }, 500);
+    });
+
+    // Module dialog helper — replaces flavor bubble, takes priority
+    function showFeedbackBubble(text) {
+      speechBubble.style.display = "block";
+      speechBubble.style.opacity = "1";
+      bubbleText.textContent = text;
+      bubbleText.style.color = "#FFD700";
+      setTimeout(function() {
+        if (bubbleText.textContent === text) {
+          speechBubble.style.display = "none";
+        }
+      }, 4000);
+    }
+
+    function showModuleDialog(message, buttons, opts) {
+      opts = opts || {};
+      // Remove existing dialog
+      var old = document.getElementById("module-dialog");
+      if (old) old.remove();
+
+      // Suppress flavor text while dialog is active
+      moduleDialogActive = true;
+
+      // Hide the speech bubble so it doesn't overlap
+      speechBubble.style.opacity = "0";
+
+      var dialog = document.createElement("div");
+      dialog.id = "module-dialog";
+      dialog.style.cssText = "position:fixed; bottom:120px; right:20px; background:rgba(20,20,20,0.95); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:14px 16px; max-width:280px; z-index:9000; font-size:12px; color:#ccc; backdrop-filter:blur(20px);";
+
+      var msgEl = document.createElement("div");
+      msgEl.textContent = message;
+      msgEl.style.marginBottom = "10px";
+      dialog.appendChild(msgEl);
+
+      var btnRow = document.createElement("div");
+      btnRow.style.cssText = "display:flex; gap:6px; flex-wrap:wrap;";
+
+      function dismissDialog() {
+        if (dialog.parentNode) dialog.remove();
+        moduleDialogActive = false;
+        speechBubble.style.opacity = "1";
+      }
+
+      buttons.forEach(function(btn) {
+        var b = document.createElement("button");
+        b.textContent = btn.label;
+        b.style.cssText = "background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); color:#ccc; padding:6px 12px; border-radius:6px; font-size:11px; cursor:pointer; font-family:inherit;";
+        b.addEventListener("mouseenter", function() { b.style.background = "rgba(255,215,0,0.3)"; b.style.color = "#fff"; });
+        b.addEventListener("mouseleave", function() { b.style.background = "rgba(255,255,255,0.1)"; b.style.color = "#ccc"; });
+        b.addEventListener("click", function() { dismissDialog(); btn.action(); });
+        btnRow.appendChild(b);
+      });
+
+      dialog.appendChild(btnRow);
+      document.getElementById("app").appendChild(dialog);
+
+      // Auto-dismiss (default 20s, longer for important dialogs)
+      var timeout = opts.timeout || 20000;
+      setTimeout(function() { dismissDialog(); }, timeout);
+    }
+
     // ── Walkie Talkie ──
     let walkieOpen = false;
     let walkieDB = null;
@@ -1058,9 +1418,12 @@
       });
 
       // Listen for new messages
+      var walkieStartTime = Date.now();
       walkieListener = walkieRef.orderByChild("ts").limitToLast(1).on("child_added", function(snap) {
         var msg = snap.val();
         if (!msg) return;
+        // Ignore old messages from before we connected (prevents trillo on startup)
+        if (msg.ts && msg.ts < walkieStartTime - 30000) return;
         addWalkieMessage(msg);
 
         // Trillo shake for everyone (including self)

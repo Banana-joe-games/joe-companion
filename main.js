@@ -5,6 +5,13 @@ const os = require("os");
 const { exec } = require("child_process");
 const { autoUpdater } = require("electron-updater");
 
+// ── Joe Modules ──
+const fileWatcher = require("./modules/file-watcher");
+// const clipboardMonitor = require("./modules/clipboard-monitor"); // disabled
+const emailMonitor = require("./modules/email-monitor");
+const gmailMonitor = require("./modules/gmail-monitor");
+const { getConfig } = require("./modules/config");
+
 let mainWindow = null;
 let tray = null;
 let onboardingWindow = null;
@@ -58,11 +65,11 @@ function checkActiveWindow() {
     end try
   `;
   exec(`osascript -e '${script.replace(/'/g, "'\\''")}'`, { timeout: 5000 }, (error, stdout) => {
-    if (error || !stdout || !mainWindow) return;
+    if (error || !stdout || !mainWindow || mainWindow.isDestroyed()) return;
     const parts = stdout.trim().split("|");
     const appName = (parts[0] || "").toLowerCase();
     const winTitle = (parts[1] || "").toLowerCase();
-    mainWindow.webContents.send("active-context", { appName, winTitle });
+    try { mainWindow.webContents.send("active-context", { appName, winTitle }); } catch(e) {}
   });
 }
 
@@ -86,7 +93,10 @@ function createTray() {
   tray = new Tray(icon);
   tray.setToolTip("Joe");
 
-  const contextMenu = Menu.buildFromTemplate([
+  // Gmail tray items only if OAuth credentials exist (dev setup)
+  const hasGmailOAuth = fs.existsSync(path.join(require("./modules/config").CONFIG_DIR, "gmail-oauth.json"));
+
+  const menuItems = [
     {
       label: "Show / Hide  (Cmd+Shift+C)",
       click: () => {
@@ -111,15 +121,34 @@ function createTray() {
         });
       },
     },
+  ];
+
+  if (hasGmailOAuth) {
+    menuItems.push(
+      {
+        label: "Check Gmail",
+        click: () => {
+          mainWindow.webContents.send("gmail-checking");
+          gmailMonitor.runMorningCheck();
+        },
+      },
+      {
+        label: "Add Gmail Account",
+        click: () => {
+          gmailMonitor.authorize();
+        },
+      }
+    );
+  }
+
+  menuItems.push(
     { type: "separator" },
-    { label: "Quit Joe", click: () => app.quit() },
-  ]);
+    { label: "Quit Joe", click: () => app.quit() }
+  );
+
+  const contextMenu = Menu.buildFromTemplate(menuItems);
 
   tray.setContextMenu(contextMenu);
-  tray.on("click", () => {
-    if (mainWindow.isVisible()) mainWindow.hide();
-    else mainWindow.show();
-  });
 }
 
 // ── Screenshot ──
@@ -195,6 +224,60 @@ function createWindow() {
   });
 }
 
+// ── Module IPC handlers ──
+ipcMain.on("file-watcher-response", (event, action, data) => {
+  fileWatcher.handleResponse(action, data);
+});
+ipcMain.on("open-folder-picker", (event, filePath, projectId) => {
+  fileWatcher.openFolderPicker(filePath, projectId);
+});
+// ipcMain.on("clipboard-response", (event, action, data) => {
+//   clipboardMonitor.handleResponse(action, data);
+// });
+ipcMain.on("email-response", (event, action) => {
+  emailMonitor.handleResponse(action);
+});
+ipcMain.on("email-check-now", () => {
+  emailMonitor.manualCheck();
+});
+ipcMain.on("gmail-authorize", () => {
+  gmailMonitor.authorize().then(() => {
+    if (mainWindow) mainWindow.webContents.send("show-bubble", "gmail connected!");
+  }).catch((err) => {
+    if (mainWindow) mainWindow.webContents.send("show-bubble", "gmail auth failed: " + err.message);
+  });
+});
+ipcMain.on("gmail-check-now", () => {
+  mainWindow.webContents.send("gmail-checking");
+  gmailMonitor.runMorningCheck();
+});
+ipcMain.on("gmail-ignore", (event, threadId) => {
+  gmailMonitor.ignoreThread(threadId);
+});
+ipcMain.on("gmail-open", (event, threadId, account) => {
+  const acctNum = (account || "").includes("numerocinquantuno") ? "2" : "0";
+  if (threadId) {
+    exec('open "https://mail.google.com/mail/u/' + acctNum + '/#inbox/' + threadId + '"');
+  } else {
+    exec('open "https://mail.google.com/mail/u/' + acctNum + '/"');
+  }
+});
+ipcMain.on("gmail-open-all", (event, threadIds) => {
+  if (threadIds && threadIds.length > 0) {
+    threadIds.forEach((tid, i) => {
+      setTimeout(() => {
+        exec('open "https://mail.google.com/mail/u/0/#inbox/' + tid + '"');
+      }, i * 800);
+    });
+  } else {
+    exec('open "https://mail.google.com"');
+  }
+});
+ipcMain.on("save-api-key", (event, key) => {
+  const { saveConfig } = require("./modules/config");
+  saveConfig({ apiKey: key });
+});
+
 // ── Onboarding ──
 function showOnboarding(callback) {
   const display = screen.getPrimaryDisplay();
@@ -221,9 +304,6 @@ function showOnboarding(callback) {
 
   ipcMain.once("onboarding-done", (event, data) => {
     saveSettings({ name: data.name });
-    if (data.openPerms) {
-      exec('open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"');
-    }
     onboardingWindow.close();
     onboardingWindow = null;
     callback(data.name);
@@ -262,6 +342,16 @@ app.whenReady().then(() => {
     autoUpdater.autoInstallOnAppQuit = true;
     autoUpdater.checkForUpdates().catch(() => {});
     setInterval(() => autoUpdater.checkForUpdates().catch(() => {}), 4 * 60 * 60 * 1000);
+
+    // ── Start Joe Modules ──
+    const modConfig = getConfig();
+    mainWindow.webContents.on("did-finish-load", () => {
+      if (modConfig.modules?.fileWatcher !== false) fileWatcher.start(mainWindow);
+      // clipboardMonitor disabled
+      if (modConfig.modules?.emailMonitor !== false) emailMonitor.start(mainWindow);
+      const hasOAuth = fs.existsSync(path.join(require("./modules/config").CONFIG_DIR, "gmail-oauth.json"));
+      if (hasOAuth && modConfig.modules?.gmailMonitor !== false) gmailMonitor.start(mainWindow);
+    });
   }
 
   if (settings.name) {
