@@ -39,7 +39,9 @@
       "shell.html",
       "onboarding.html",
       "firebase-config.js",
-      "cal-helper"
+      "cal-helper",
+      "modules/**",
+      "scripts/**"
     ]
   },
   "devDependencies": {
