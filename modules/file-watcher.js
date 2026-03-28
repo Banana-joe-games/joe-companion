@@ -118,8 +118,8 @@ async function processFile(filename, sourceDir) {
     }
 
     if (!analysis) {
-      log(`No match at all for ${filename}`);
-      return;
+      log(`No match at all for ${filename}, showing generic dialog`);
+      analysis = { project: "none", confidence: "low", reason: "no match found" };
     }
 
     // Send to renderer with full context
@@ -138,20 +138,19 @@ async function processFile(filename, sourceDir) {
 
   } catch(e) {
     log(`File analysis error: ${e.message}`);
-    // Fallback: simple pattern matching
+    // Fallback: simple pattern matching, then generic dialog
     const simple = simpleMatch(filename);
-    if (simple) {
-      sendToRenderer("file-watcher-step", {
-        step: "identify",
-        filename,
-        filePath,
-        isImage: false,
-        projectId: simple.project,
-        projectName: getProjectName(simple.project),
-        reason: simple.reason,
-        confidence: simple.confidence,
-      });
-    }
+    const fallback = simple || { project: "none", confidence: "low", reason: "analysis failed" };
+    sendToRenderer("file-watcher-step", {
+      step: "identify",
+      filename,
+      filePath,
+      isImage: false,
+      projectId: fallback.project,
+      projectName: getProjectName(fallback.project),
+      reason: fallback.reason,
+      confidence: fallback.confidence,
+    });
   }
 }
 
