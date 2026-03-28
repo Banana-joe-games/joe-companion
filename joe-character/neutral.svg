@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 280 280">
+  <!-- Generator: Adobe Illustrator 30.2.1, SVG Export Plug-In . SVG Version: 2.1.1 Build 1)  -->
+  <defs>
+    <style>
+      .st0 {
+        fill: #8b6914;
+      }
+
+      .st1 {
+        stroke-opacity: 0;
+        stroke-width: 6px;
+      }
+
+      .st1, .st2, .st3 {
+        fill: none;
+        stroke-linecap: round;
+        stroke-miterlimit: 16;
+      }
+
+      .st1, .st3 {
+        stroke: #c90;
+      }
+
+      .st4 {
+        fill: url(#radial-gradient);
+      }
+
+      .st2 {
+        stroke: #ccb000;
+        stroke-width: 8px;
+      }
+
+      .st3 {
+        stroke-width: 10px;
+      }
+
+      .st5, .st6 {
+        fill: #fff;
+      }
+
+      .st6 {
+        fill-opacity: .18;
+      }
+
+      .st7 {
+        fill: gold;
+      }
+
+      .st8 {
+        fill: #1a1a1a;
+      }
+    </style>
+    <radialGradient id="radial-gradient" cx="-155.85" cy="559.19" fx="-155.85" fy="559.19" r=".6" gradientTransform="translate(32535 116432.08) scale(208 -208)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity=".12"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".1"/>
+    </radialGradient>
+  </defs>
+  <circle class="st7" cx="140" cy="152" r="104"/>
+  <circle class="st4" cx="140" cy="152" r="104"/>
+  <ellipse class="st6" cx="112" cy="112" rx="40" ry="32"/>
+  <g id="left-eye">
+    <circle class="st5" cx="100" cy="140" r="24"/>
+    <circle id="left-pupil" class="st8" cx="100" cy="140" r="14"/>
+    <circle id="left-glint" class="st5" cx="94" cy="134" r="4.8"/>
+  </g>
+  <g id="right-eye">
+    <circle class="st5" cx="180" cy="140" r="24"/>
+    <circle id="right-pupil" class="st8" cx="180" cy="140" r="14"/>
+    <circle id="right-glint" class="st5" cx="174" cy="134" r="4.8"/>
+  </g>
+  <path id="left-brow" class="st1" d="M76,112c8-5.33,20-5.33,36,0"/>
+  <path id="right-brow" class="st1" d="M168,112c8-5.33,16-5.33,24,0"/>
+  <path id="mouth" class="st3" d="M112,184c18.67,18.67,37.33,18.67,56,0"/>
+  <line class="st2" x1="140" y1="48" x2="140" y2="72"/>
+  <circle class="st0" cx="140" cy="40" r="12"/>
+</svg>

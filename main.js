@@ -475,6 +475,71 @@ ipcMain.on("save-api-key", (event, key) => {
   saveConfig({ apiKey: key });
 });
 
+// ── Load character expressions from SVG files ──
+ipcMain.handle("load-expressions", async () => {
+  const charDir = path.join(__dirname, "joe-character");
+  const moods = ["happy", "smirk", "worried", "suspicious", "sad", "neutral"];
+  const expressions = {};
+
+  for (const mood of moods) {
+    try {
+      const svgPath = path.join(charDir, `${mood}.svg`);
+      if (!fs.existsSync(svgPath)) continue;
+      const svg = fs.readFileSync(svgPath, "utf8");
+
+      // Extract attributes — works with any attribute order (Illustrator puts class before d/id)
+      function getAttrFromTag(svgStr, id, attr) {
+        // Find the tag with this id, then get the attribute value
+        var re = new RegExp('<[^>]*id="' + id + '"[^>]*>', 's');
+        var tagMatch = svgStr.match(re);
+        if (!tagMatch) {
+          // Try id after other attrs: <path class="x" id="mouth" d="...">
+          re = new RegExp('<[^>]*\\bid="' + id + '"[^>]*>', 's');
+          tagMatch = svgStr.match(re);
+        }
+        if (!tagMatch) return null;
+        // Use word boundary \b to avoid matching "id" when looking for "d"
+        var attrRe = new RegExp('\\b' + attr + '="([^"]+)"');
+        var m = tagMatch[0].match(attrRe);
+        return m ? m[1] : null;
+      }
+
+      // Check if brow has stroke-opacity:0 in its class (Illustrator style)
+      function isBrowHidden(svgStr, id) {
+        var cls = getAttrFromTag(svgStr, id, "class");
+        if (!cls) return false;
+        // Find the class definition in <style>
+        var clsRe = new RegExp('\\.' + cls + '\\s*\\{([^}]+)\\}');
+        var m = svgStr.match(clsRe);
+        if (m && m[1].includes("stroke-opacity") && m[1].includes("0")) return true;
+        return false;
+      }
+
+      var mouth = getAttrFromTag(svg, "mouth", "d");
+      var lbD = getAttrFromTag(svg, "left-brow", "d");
+      var rbD = getAttrFromTag(svg, "right-brow", "d");
+      var lbOp = getAttrFromTag(svg, "left-brow", "opacity");
+      var rbOp = getAttrFromTag(svg, "right-brow", "opacity");
+      // If no explicit opacity attr, check CSS class for stroke-opacity: 0
+      if (!lbOp && isBrowHidden(svg, "left-brow")) lbOp = "0";
+      if (!rbOp && isBrowHidden(svg, "right-brow")) rbOp = "0";
+
+      // Eye size: first <circle> inside left-eye group
+      var eyeMatch = svg.match(/id="left-eye"[^>]*>[\s\S]*?<circle[^>]*r="([^"]+)"/);
+
+      expressions[mood] = {
+        mouth: mouth,
+        leftBrow: { d: lbD, opacity: lbOp || "1" },
+        rightBrow: { d: rbD, opacity: rbOp || "1" },
+        eyeSize: eyeMatch ? parseFloat(eyeMatch[1]) : 24,
+      };
+    } catch (e) {
+      console.log(`Failed to load expression ${mood}: ${e.message}`);
+    }
+  }
+  return expressions;
+});
+
 // ── Onboarding ──
 function showOnboarding(callback) {
   const display = screen.getPrimaryDisplay();

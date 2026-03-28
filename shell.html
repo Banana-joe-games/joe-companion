@@ -251,31 +251,41 @@
         <span id="bubble-text">click me!</span>
         <div class="tail"></div>
       </div>
-      <svg width="70" height="70" viewBox="0 0 70 70" id="char-svg">
+      <svg width="70" height="70" viewBox="0 0 280 280" id="char-svg">
         <defs>
-          <radialGradient id="bodyGrad" cx="0.4" cy="0.35" r="0.6">
-            <stop offset="0%" stop-color="rgba(255,255,255,0.12)" />
-            <stop offset="100%" stop-color="rgba(0,0,0,0.1)" />
+          <style>
+            .st0 { fill: #8b6914; }
+            .st1 { fill: none; stroke: #c90; stroke-linecap: round; stroke-miterlimit: 16; stroke-width: 6px; stroke-opacity: 0; }
+            .st2 { fill: none; stroke: #ccb000; stroke-linecap: round; stroke-miterlimit: 16; stroke-width: 8px; }
+            .st3 { fill: none; stroke: #c90; stroke-linecap: round; stroke-miterlimit: 16; stroke-width: 10px; }
+            .st5, .st6 { fill: #fff; }
+            .st6 { fill-opacity: .18; }
+            .st7 { fill: gold; }
+            .st8 { fill: #1a1a1a; }
+          </style>
+          <radialGradient id="bodyGrad" cx="-155.85" cy="559.19" fx="-155.85" fy="559.19" r=".6" gradientTransform="translate(32535 116432.08) scale(208 -208)" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#fff" stop-opacity=".12"/>
+            <stop offset="1" stop-color="#000" stop-opacity=".1"/>
           </radialGradient>
         </defs>
-        <circle cx="35" cy="38" r="26" fill="#FFD700" />
-        <circle cx="35" cy="38" r="26" fill="url(#bodyGrad)" />
-        <ellipse cx="28" cy="28" rx="10" ry="8" fill="rgba(255,255,255,0.18)" />
-        <g id="left-eye" style="animation: eyeBlink 4s infinite; transform-origin: 25px 35px;">
-          <circle cx="25" cy="35" r="6" fill="#fff" />
-          <circle id="left-pupil" cx="25" cy="35" r="3.5" fill="#1a1a1a" />
-          <circle id="left-glint" cx="23.5" cy="33.5" r="1.2" fill="#fff" />
+        <circle class="st7" cx="140" cy="152" r="104"/>
+        <circle style="fill:url(#bodyGrad)" cx="140" cy="152" r="104"/>
+        <ellipse class="st6" cx="112" cy="112" rx="40" ry="32"/>
+        <g id="left-eye" style="animation: eyeBlink 4s infinite; transform-origin: 100px 140px;">
+          <circle class="st5" cx="100" cy="140" r="24"/>
+          <circle id="left-pupil" class="st8" cx="100" cy="140" r="14"/>
+          <circle id="left-glint" class="st5" cx="94" cy="134" r="4.8"/>
         </g>
-        <g id="right-eye" style="animation: eyeBlink 4s infinite 0.1s; transform-origin: 45px 35px;">
-          <circle cx="45" cy="35" r="6" fill="#fff" />
-          <circle id="right-pupil" cx="45" cy="35" r="3.5" fill="#1a1a1a" />
-          <circle id="right-glint" cx="43.5" cy="33.5" r="1.2" fill="#fff" />
+        <g id="right-eye" style="animation: eyeBlink 4s infinite 0.1s; transform-origin: 180px 140px;">
+          <circle class="st5" cx="180" cy="140" r="24"/>
+          <circle id="right-pupil" class="st8" cx="180" cy="140" r="14"/>
+          <circle id="right-glint" class="st5" cx="174" cy="134" r="4.8"/>
         </g>
-        <path id="left-brow" d="M19 28 Q22 26 28 28" stroke="#CC9900" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0" />
-        <path id="right-brow" d="M42 28 Q45 26 48 28" stroke="#CC9900" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0" />
-        <path id="mouth" d="M28 46 Q35 53 42 46" stroke="#CC9900" stroke-width="2.5" fill="none" stroke-linecap="round" />
-        <line x1="35" y1="12" x2="35" y2="18" stroke="#CCB000" stroke-width="2" stroke-linecap="round" />
-        <circle cx="35" cy="10" r="3" fill="#8B6914" />
+        <path id="left-brow" class="st1" d="M76,112c8-5.33,20-5.33,36,0"/>
+        <path id="right-brow" class="st1" d="M168,112c8-5.33,16-5.33,24,0"/>
+        <path id="mouth" d="M112,184c18.67,18.67,37.33,18.67,56,0" stroke="#CC9900" stroke-width="10" fill="none" stroke-linecap="round"/>
+        <line class="st2" x1="140" y1="48" x2="140" y2="72"/>
+        <circle class="st0" cx="140" cy="40" r="12"/>
       </svg>
     </div>
   </div>
@@ -521,26 +531,53 @@
       }
     });
 
-    // Eye tracking
+    // Eye tracking — reads base positions and viewBox scale from SVG automatically
+    var eyeBase = {};
+    var eyeScale = 1;
+    function cacheEyePositions() {
+      var lp = document.getElementById("left-pupil");
+      var lg = document.getElementById("left-glint");
+      var rp = document.getElementById("right-pupil");
+      var rg = document.getElementById("right-glint");
+      if (!lp) return;
+      eyeBase = {
+        lp: { x: parseFloat(lp.getAttribute("cx")), y: parseFloat(lp.getAttribute("cy")) },
+        lg: { x: parseFloat(lg.getAttribute("cx")), y: parseFloat(lg.getAttribute("cy")) },
+        rp: { x: parseFloat(rp.getAttribute("cx")), y: parseFloat(rp.getAttribute("cy")) },
+        rg: { x: parseFloat(rg.getAttribute("cx")), y: parseFloat(rg.getAttribute("cy")) },
+      };
+      var svg = document.getElementById("char-svg");
+      if (svg) {
+        var vb = svg.getAttribute("viewBox");
+        if (vb) {
+          var parts = vb.split(/[\s,]+/);
+          var vbWidth = parseFloat(parts[2]) || 70;
+          eyeScale = vbWidth / 70;
+        }
+      }
+    }
+    cacheEyePositions();
+
     document.addEventListener("mousemove", (e) => {
       const svg = document.getElementById("char-svg");
-      if (!svg) return;
+      if (!svg || !eyeBase.lp) return;
       const rect = svg.getBoundingClientRect();
       const cx = rect.left + rect.width / 2;
       const cy = rect.top + rect.height / 2;
       const dx = e.clientX - cx;
       const dy = e.clientY - cy;
       const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      const mx = (dx / dist) * 3;
-      const my = (dy / dist) * 3;
-      document.getElementById("left-pupil").setAttribute("cx", 25 + mx);
-      document.getElementById("left-pupil").setAttribute("cy", 35 + my);
-      document.getElementById("left-glint").setAttribute("cx", 23.5 + mx * 0.5);
-      document.getElementById("left-glint").setAttribute("cy", 33.5 + my * 0.5);
-      document.getElementById("right-pupil").setAttribute("cx", 45 + mx);
-      document.getElementById("right-pupil").setAttribute("cy", 35 + my);
-      document.getElementById("right-glint").setAttribute("cx", 43.5 + mx * 0.5);
-      document.getElementById("right-glint").setAttribute("cy", 33.5 + my * 0.5);
+      const move = 3 * eyeScale;
+      const mx = (dx / dist) * move;
+      const my = (dy / dist) * move;
+      document.getElementById("left-pupil").setAttribute("cx", eyeBase.lp.x + mx);
+      document.getElementById("left-pupil").setAttribute("cy", eyeBase.lp.y + my);
+      document.getElementById("left-glint").setAttribute("cx", eyeBase.lg.x + mx * 0.5);
+      document.getElementById("left-glint").setAttribute("cy", eyeBase.lg.y + my * 0.5);
+      document.getElementById("right-pupil").setAttribute("cx", eyeBase.rp.x + mx);
+      document.getElementById("right-pupil").setAttribute("cy", eyeBase.rp.y + my);
+      document.getElementById("right-glint").setAttribute("cx", eyeBase.rg.x + mx * 0.5);
+      document.getElementById("right-glint").setAttribute("cy", eyeBase.rg.y + my * 0.5);
     });
 
     // Context detection — react on context CHANGE
@@ -878,52 +915,66 @@
         }, 300);
       }, 600);
     });
-    // ── Expressions ──
-    // Moods: happy, smirk, worried, suspicious, sad, neutral
-    const EXPRESSION = {
-      mouth: {
-        happy:      "M28 46 Q35 53 42 46",    // big smile
-        smirk:      "M29 47 Q35 50 41 46",    // one side up
-        worried:    "M29 49 Q35 46 41 49",    // slight frown
-        suspicious: "M30 48 L40 48",           // flat line
-        sad:        "M29 50 Q35 45 41 50",    // frown
-        neutral:    "M28 46 Q35 53 42 46",    // default smile
-      },
+    // ── Expressions (loaded from joe-character/*.svg files) ──
+    // Fallback values read from current SVG in page
+    var _mouthBase = document.getElementById("mouth").getAttribute("d");
+    var _lbBase = document.getElementById("left-brow").getAttribute("d");
+    var _rbBase = document.getElementById("right-brow").getAttribute("d");
+    var _eyeBase = parseFloat(document.querySelector("#left-eye > circle:first-child").getAttribute("r"));
+    var _rightEyeBase = parseFloat(document.querySelector("#right-eye > circle:first-child").getAttribute("r"));
+    var _eyeRatio = _eyeBase > 0 ? _rightEyeBase / _eyeBase : 1;
+
+    var EXPRESSION = {
+      mouth: { happy: _mouthBase, smirk: _mouthBase, worried: _mouthBase, suspicious: _mouthBase, sad: _mouthBase, neutral: _mouthBase },
       leftBrow: {
-        happy:      { d: "M19 28 Q22 25 28 27", opacity: "1" },
-        smirk:      { d: "M19 28 Q22 26 28 28", opacity: "1" },
-        worried:    { d: "M19 26 Q22 28 28 27", opacity: "1" },
-        suspicious: { d: "M19 27 Q22 24 28 27", opacity: "1" },
-        sad:        { d: "M19 26 Q22 28 28 26", opacity: "1" },
-        neutral:    { d: "M19 28 Q22 26 28 28", opacity: "0" },
+        happy: { d: _lbBase, opacity: "1" }, smirk: { d: _lbBase, opacity: "1" }, worried: { d: _lbBase, opacity: "1" },
+        suspicious: { d: _lbBase, opacity: "1" }, sad: { d: _lbBase, opacity: "1" }, neutral: { d: _lbBase, opacity: "0" },
       },
       rightBrow: {
-        happy:      { d: "M42 27 Q45 25 48 28", opacity: "1" },
-        smirk:      { d: "M42 26 Q45 24 48 27", opacity: "1" },
-        worried:    { d: "M42 27 Q45 28 48 26", opacity: "1" },
-        suspicious: { d: "M42 27 Q45 24 48 27", opacity: "1" },
-        sad:        { d: "M42 26 Q45 28 48 26", opacity: "1" },
-        neutral:    { d: "M42 28 Q45 26 48 28", opacity: "0" },
+        happy: { d: _rbBase, opacity: "1" }, smirk: { d: _rbBase, opacity: "1" }, worried: { d: _rbBase, opacity: "1" },
+        suspicious: { d: _rbBase, opacity: "1" }, sad: { d: _rbBase, opacity: "1" }, neutral: { d: _rbBase, opacity: "0" },
       },
-      eyeSize: {
-        happy: 5.5, smirk: 6, worried: 7, suspicious: 4.5, sad: 5.5, neutral: 6,
-      }
+      eyeSize: { happy: _eyeBase, smirk: _eyeBase, worried: _eyeBase, suspicious: _eyeBase, sad: _eyeBase, neutral: _eyeBase },
     };
+
+    // Load expressions from SVG files (overrides fallback)
+    if (window.electronAPI && window.electronAPI.loadExpressions) {
+      window.electronAPI.loadExpressions().then(function(expr) {
+        if (!expr) return;
+        var moods = ["happy", "smirk", "worried", "suspicious", "sad", "neutral"];
+        moods.forEach(function(m) {
+          if (!expr[m]) return;
+          if (expr[m].mouth) EXPRESSION.mouth[m] = expr[m].mouth;
+          if (expr[m].leftBrow && expr[m].leftBrow.d) EXPRESSION.leftBrow[m] = expr[m].leftBrow;
+          if (expr[m].rightBrow && expr[m].rightBrow.d) EXPRESSION.rightBrow[m] = expr[m].rightBrow;
+          if (expr[m].eyeSize) EXPRESSION.eyeSize[m] = expr[m].eyeSize;
+        });
+        console.log("Expressions loaded from SVG files");
+      });
+    }
 
     function setExpression(mood) {
       var m = mood || "neutral";
-      document.getElementById("mouth").setAttribute("d", EXPRESSION.mouth[m]);
+      var mouthD = EXPRESSION.mouth[m];
+      if (mouthD) document.getElementById("mouth").setAttribute("d", mouthD);
       var lb = EXPRESSION.leftBrow[m];
       var rb = EXPRESSION.rightBrow[m];
-      document.getElementById("left-brow").setAttribute("d", lb.d);
-      document.getElementById("left-brow").setAttribute("opacity", lb.opacity);
-      document.getElementById("right-brow").setAttribute("d", rb.d);
-      document.getElementById("right-brow").setAttribute("opacity", rb.opacity);
-      // Eye size
+      var lbEl = document.getElementById("left-brow");
+      var rbEl = document.getElementById("right-brow");
+      lbEl.setAttribute("d", lb.d);
+      rbEl.setAttribute("d", rb.d);
+      // Handle opacity — support both opacity attribute and stroke-opacity style
+      var lbVisible = lb.opacity !== "0";
+      var rbVisible = rb.opacity !== "0";
+      lbEl.setAttribute("opacity", lbVisible ? "1" : "0");
+      lbEl.style.strokeOpacity = lbVisible ? "1" : "0";
+      rbEl.setAttribute("opacity", rbVisible ? "1" : "0");
+      rbEl.style.strokeOpacity = rbVisible ? "1" : "0";
+      // Eye size — scale each eye independently
       var es = EXPRESSION.eyeSize[m];
-      document.querySelectorAll("#left-eye > circle:first-child, #right-eye > circle:first-child").forEach(function(c) {
-        c.setAttribute("r", es);
-      });
+      document.querySelector("#left-eye > circle:first-child").setAttribute("r", es);
+      // Right eye scales proportionally (keeps asymmetry ratio from SVG)
+      document.querySelector("#right-eye > circle:first-child").setAttribute("r", es * _eyeRatio);
     }
 
     // Map phrases to moods

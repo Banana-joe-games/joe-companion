@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 280 280" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .st0 { fill: #8b6914; } .st1 { fill: none; stroke: #c90; stroke-linecap: round; stroke-miterlimit: 16; stroke-width: 6px; }
+      .st2 { fill: none; stroke: #ccb000; stroke-linecap: round; stroke-miterlimit: 16; stroke-width: 8px; }
+      .st3 { fill: none; stroke: #c90; stroke-linecap: round; stroke-miterlimit: 16; stroke-width: 10px; }
+      .st5, .st6 { fill: #fff; } .st6 { fill-opacity: .18; } .st7 { fill: gold; } .st8 { fill: #1a1a1a; }
+    </style>
+  </defs>
+  <circle class="st7" cx="140" cy="152" r="104"/>
+  <ellipse class="st6" cx="112" cy="112" rx="40" ry="32"/>
+  <g id="left-eye"><circle class="st5" cx="100" cy="140" r="18"/><circle id="left-pupil" class="st8" cx="100" cy="140" r="14"/><circle id="left-glint" class="st5" cx="94" cy="134" r="4.8"/></g>
+  <g id="right-eye"><circle class="st5" cx="180" cy="140" r="18"/><circle id="right-pupil" class="st8" cx="180" cy="140" r="14"/><circle id="right-glint" class="st5" cx="174" cy="134" r="4.8"/></g>
+  <path id="left-brow" class="st1" d="M76,108c8,-12,20,-12,36,0" opacity="1"/>
+  <path id="right-brow" class="st1" d="M168,108c8,-12,16,-12,24,0" opacity="1"/>
+  <path id="mouth" class="st3" d="M120,192L160,192"/>
+  <line class="st2" x1="140" y1="48" x2="140" y2="72"/>
+  <circle class="st0" cx="140" cy="40" r="12"/>
+</svg>

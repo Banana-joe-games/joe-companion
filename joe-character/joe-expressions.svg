@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1680" height="280" viewBox="0 0 420 70" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    JOE EXPRESSIONS — All 6 moods side by side
+    Compatible with Adobe Illustrator + Figma.
+
+    To update an expression in code:
+      EXPRESSION.mouth.[mood] = mouth "d" attribute
+      EXPRESSION.leftBrow.[mood] = { d: "...", opacity: "1" }
+      EXPRESSION.rightBrow.[mood] = { d: "...", opacity: "1" }
+      EXPRESSION.eyeSize.[mood] = eye white radius
+  -->
+
+  <defs>
+    <radialGradient id="bodyGrad" cx="0.4" cy="0.35" r="0.6">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.1" />
+    </radialGradient>
+  </defs>
+
+  <!-- ====== 1. HAPPY (eyeSize: 5.5) ====== -->
+  <g transform="translate(0, 0)">
+    <text x="35" y="8" text-anchor="middle" fill="#FFD700" font-size="5" font-family="sans-serif" font-weight="bold">HAPPY</text>
+    <circle cx="35" cy="38" r="26" fill="#FFD700" />
+    <circle cx="35" cy="38" r="26" fill="url(#bodyGrad)" />
+    <ellipse cx="28" cy="28" rx="10" ry="8" fill="#ffffff" fill-opacity="0.18" />
+    <g><circle cx="25" cy="35" r="5.5" fill="#ffffff" /><circle cx="25" cy="35" r="3.5" fill="#1a1a1a" /><circle cx="23.5" cy="33.5" r="1.2" fill="#ffffff" /></g>
+    <g><circle cx="45" cy="35" r="5.5" fill="#ffffff" /><circle cx="45" cy="35" r="3.5" fill="#1a1a1a" /><circle cx="43.5" cy="33.5" r="1.2" fill="#ffffff" /></g>
+    <path d="M19 28 Q22 25 28 27" stroke="#CC9900" stroke-width="1.5" fill="none" stroke-linecap="round" />
+    <path d="M42 27 Q45 25 48 28" stroke="#CC9900" stroke-width="1.5" fill="none" stroke-linecap="round" />
+    <path d="M28 46 Q35 53 42 46" stroke="#CC9900" stroke-width="2.5" fill="none" stroke-linecap="round" />
+    <line x1="35" y1="12" x2="35" y2="18" stroke="#CCB000" stroke-width="2" stroke-linecap="round" />
+    <circle cx="35" cy="10" r="3" fill="#8B6914" />
+  </g>
+
+  <!-- ====== 2. SMIRK (eyeSize: 6) ====== -->
+  <g transform="translate(70, 0)">
+    <text x="35" y="8" text-anchor="middle" fill="#FFD700" font-size="5" font-family="sans-serif" font-weight="bold">SMIRK</text>
+    <circle cx="35" cy="38" r="26" fill="#FFD700" />
+    <circle cx="35" cy="38" r="26" fill="url(#bodyGrad)" />
+    <ellipse cx="28" cy="28" rx="10" ry="8" fill="#ffffff" fill-opacity="0.18" />
+    <g><circle cx="25" cy="35" r="6" fill="#ffffff" /><circle cx="25" cy="35" r="3.5" fill="#1a1a1a" /><circle cx="23.5" cy="33.5" r="1.2" fill="#ffffff" /></g>
+    <g><circle cx="45" cy="35" r="6" fill="#ffffff" /><circle cx="45" cy="35" r="3.5" fill="#1a1a1a" /><circle cx="43.5" cy="33.5" r="1.2" fill="#ffffff" /></g>
+    <path d="M19 28 Q22 26 28 28" stroke="#CC9900" stroke-width="1.5" fill="none" stroke-linecap="round" />
+    <path d="M42 26 Q45 24 48 27" stroke="#CC9900" stroke-width="1.5" fill="none" stroke-linecap="round" />
+    <path d="M29 47 Q35 50 41 46" stroke="#CC9900" stroke-width="2.5" fill="none" stroke-linecap="round" />
+    <line x1="35" y1="12" x2="35" y2="18" stroke="#CCB000" stroke-width="2" stroke-linecap="round" />
+    <circle cx="35" cy="10" r="3" fill="#8B6914" />
+  </g>
+
+  <!-- ====== 3. WORRIED (eyeSize: 7) ====== -->
+  <g transform="translate(140, 0)">
+    <text x="35" y="8" text-anchor="middle" fill="#FFD700" font-size="5" font-family="sans-serif" font-weight="bold">WORRIED</text>
+    <circle cx="35" cy="38" r="26" fill="#FFD700" />
+    <circle cx="35" cy="38" r="26" fill="url(#bodyGrad)" />
+    <ellipse cx="28" cy="28" rx="10" ry="8" fill="#ffffff" fill-opacity="0.18" />
+    <g><circle cx="25" cy="35" r="7" fill="#ffffff" /><circle cx="25" cy="35" r="3.5" fill="#1a1a1a" /><circle cx="23.5" cy="33.5" r="1.2" fill="#ffffff" /></g>
+    <g><circle cx="45" cy="35" r="7" fill="#ffffff" /><circle cx="45" cy="35" r="3.5" fill="#1a1a1a" /><circle cx="43.5" cy="33.5" r="1.2" fill="#ffffff" /></g>
+    <path d="M19 26 Q22 28 28 27" stroke="#CC9900" stroke-width="1.5" fill="none" stroke-linecap="round" />
+    <path d="M42 27 Q45 28 48 26" stroke="#CC9900" stroke-width="1.5" fill="none" stroke-linecap="round" />
+    <path d="M29 49 Q35 46 41 49" stroke="#CC9900" stroke-width="2.5" fill="none" stroke-linecap="round" />
+    <line x1="35" y1="12" x2="35" y2="18" stroke="#CCB000" stroke-width="2" stroke-linecap="round" />
+    <circle cx="35" cy="10" r="3" fill="#8B6914" />
+  </g>
+
+  <!-- ====== 4. SUSPICIOUS (eyeSize: 4.5) ====== -->
+  <g transform="translate(210, 0)">
+    <text x="35" y="8" text-anchor="middle" fill="#FFD700" font-size="5" font-family="sans-serif" font-weight="bold">SUSPICIOUS</text>
+    <circle cx="35" cy="38" r="26" fill="#FFD700" />
+    <circle cx="35" cy="38" r="26" fill="url(#bodyGrad)" />
+    <ellipse cx="28" cy="28" rx="10" ry="8" fill="#ffffff" fill-opacity="0.18" />
+    <g><circle cx="25" cy="35" r="4.5" fill="#ffffff" /><circle cx="25" cy="35" r="3.5" fill="#1a1a1a" /><circle cx="23.5" cy="33.5" r="1.2" fill="#ffffff" /></g>
+    <g><circle cx="45" cy="35" r="4.5" fill="#ffffff" /><circle cx="45" cy="35" r="3.5" fill="#1a1a1a" /><circle cx="43.5" cy="33.5" r="1.2" fill="#ffffff" /></g>
+    <path d="M19 27 Q22 24 28 27" stroke="#CC9900" stroke-width="1.5" fill="none" stroke-linecap="round" />
+    <path d="M42 27 Q45 24 48 27" stroke="#CC9900" stroke-width="1.5" fill="none" stroke-linecap="round" />
+    <path d="M30 48 L40 48" stroke="#CC9900" stroke-width="2.5" fill="none" stroke-linecap="round" />
+    <line x1="35" y1="12" x2="35" y2="18" stroke="#CCB000" stroke-width="2" stroke-linecap="round" />
+    <circle cx="35" cy="10" r="3" fill="#8B6914" />
+  </g>
+
+  <!-- ====== 5. SAD (eyeSize: 5.5) ====== -->
+  <g transform="translate(280, 0)">
+    <text x="35" y="8" text-anchor="middle" fill="#FFD700" font-size="5" font-family="sans-serif" font-weight="bold">SAD</text>
+    <circle cx="35" cy="38" r="26" fill="#FFD700" />
+    <circle cx="35" cy="38" r="26" fill="url(#bodyGrad)" />
+    <ellipse cx="28" cy="28" rx="10" ry="8" fill="#ffffff" fill-opacity="0.18" />
+    <g><circle cx="25" cy="35" r="5.5" fill="#ffffff" /><circle cx="25" cy="35" r="3.5" fill="#1a1a1a" /><circle cx="23.5" cy="33.5" r="1.2" fill="#ffffff" /></g>
+    <g><circle cx="45" cy="35" r="5.5" fill="#ffffff" /><circle cx="45" cy="35" r="3.5" fill="#1a1a1a" /><circle cx="43.5" cy="33.5" r="1.2" fill="#ffffff" /></g>
+    <path d="M19 26 Q22 28 28 26" stroke="#CC9900" stroke-width="1.5" fill="none" stroke-linecap="round" />
+    <path d="M42 26 Q45 28 48 26" stroke="#CC9900" stroke-width="1.5" fill="none" stroke-linecap="round" />
+    <path d="M29 50 Q35 45 41 50" stroke="#CC9900" stroke-width="2.5" fill="none" stroke-linecap="round" />
+    <line x1="35" y1="12" x2="35" y2="18" stroke="#CCB000" stroke-width="2" stroke-linecap="round" />
+    <circle cx="35" cy="10" r="3" fill="#8B6914" />
+  </g>
+
+  <!-- ====== 6. NEUTRAL (eyeSize: 6) ====== -->
+  <g transform="translate(350, 0)">
+    <text x="35" y="8" text-anchor="middle" fill="#FFD700" font-size="5" font-family="sans-serif" font-weight="bold">NEUTRAL</text>
+    <circle cx="35" cy="38" r="26" fill="#FFD700" />
+    <circle cx="35" cy="38" r="26" fill="url(#bodyGrad)" />
+    <ellipse cx="28" cy="28" rx="10" ry="8" fill="#ffffff" fill-opacity="0.18" />
+    <g><circle cx="25" cy="35" r="6" fill="#ffffff" /><circle cx="25" cy="35" r="3.5" fill="#1a1a1a" /><circle cx="23.5" cy="33.5" r="1.2" fill="#ffffff" /></g>
+    <g><circle cx="45" cy="35" r="6" fill="#ffffff" /><circle cx="45" cy="35" r="3.5" fill="#1a1a1a" /><circle cx="43.5" cy="33.5" r="1.2" fill="#ffffff" /></g>
+    <path d="M19 28 Q22 26 28 28" stroke="#CC9900" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0" />
+    <path d="M42 28 Q45 26 48 28" stroke="#CC9900" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0" />
+    <path d="M28 46 Q35 53 42 46" stroke="#CC9900" stroke-width="2.5" fill="none" stroke-linecap="round" />
+    <line x1="35" y1="12" x2="35" y2="18" stroke="#CCB000" stroke-width="2" stroke-linecap="round" />
+    <circle cx="35" cy="10" r="3" fill="#8B6914" />
+  </g>
+</svg>

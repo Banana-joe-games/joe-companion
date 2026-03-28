@@ -94,4 +94,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   saveApiKey: (key) =>
     ipcRenderer.send("save-api-key", key),
+
+  // Character expressions
+  loadExpressions: () =>
+    ipcRenderer.invoke("load-expressions"),
 });
