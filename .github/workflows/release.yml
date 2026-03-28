@@ -39,33 +39,21 @@ jobs:
           security find-identity -v -p codesigning build.keychain
           rm certificate.p12
 
-      - name: Build without signing
+      - name: Build, sign, and notarize
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: npx electron-builder --mac --dir
+          CSC_LINK: ${{ secrets.CERTIFICATE_P12 }}
+          CSC_KEY_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npx electron-builder --mac --publish never
 
-      - name: Sign app
+      - name: Rename artifacts
         run: |
-          IDENTITY=$(security find-identity -v -p codesigning build.keychain | head -1 | awk -F'"' '{print $2}')
-          echo "Signing with: $IDENTITY"
-          codesign --deep --force --options runtime --sign "$IDENTITY" --entitlements entitlements.mac.plist "dist/mac-arm64/Clippy Claude.app"
-          codesign --verify --deep --strict "dist/mac-arm64/Clippy Claude.app"
-          echo "Signing complete!"
-
-      - name: Create DMG
-        run: |
-          npx create-dmg "dist/mac-arm64/Clippy Claude.app" dist/ || true
           DMG=$(ls dist/*.dmg 2>/dev/null | head -1)
-          if [ -n "$DMG" ]; then
-            mv "$DMG" "dist/Clippy-Claude-${{ github.ref_name }}.dmg"
-          else
-            hdiutil create -volname "Clippy Claude" -srcfolder "dist/mac-arm64/Clippy Claude.app" -ov -format UDZO "dist/Clippy-Claude-${{ github.ref_name }}.dmg"
-          fi
-
-      - name: Create ZIP for auto-update
-        run: |
-          cd dist/mac-arm64
-          ditto -c -k --keepParent "Clippy Claude.app" "../Clippy-Claude-${{ github.ref_name }}-mac.zip"
+          ZIP=$(ls dist/*.zip 2>/dev/null | head -1)
+          [ -n "$DMG" ] && mv "$DMG" "dist/Clippy-Claude-${{ github.ref_name }}.dmg"
+          [ -n "$ZIP" ] && mv "$ZIP" "dist/Clippy-Claude-${{ github.ref_name }}-mac.zip"
 
       - name: Create GitHub Release
         env:
