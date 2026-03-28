@@ -387,6 +387,18 @@
     let calendarDismissTimer = null;
     let notifiedEvents = {}; // track which event+threshold combos we've shown
     let activeContext = "default";
+    let currentJoeMood = "content";
+    let pendingJoeQuestion = null; // question Joe asked in the bubble, waiting for user reply
+
+    // Mood → SVG expression mapping
+    const MOOD_EXPRESSION = {
+      content:   "neutral",
+      concerned: "worried",
+      excited:   "happy",
+      bored:     "suspicious",
+      proud:     "smirk",
+      grumpy:    "suspicious",
+    };
 
     const character = document.getElementById("character");
     const chatContainer = document.getElementById("chat-container");
@@ -551,6 +563,18 @@
       speechBubble.classList.remove("alert");
       bubbleText.style.color = "#777";
       speechBubble.style.display = "block";
+
+      // If Joe asked a question, store it and give the bubble a subtle glow
+      if (phrase.includes("?")) {
+        pendingJoeQuestion = phrase;
+        speechBubble.style.borderColor = "rgba(255, 215, 0, 0.35)";
+        speechBubble.style.boxShadow = "0 0 8px rgba(255, 215, 0, 0.12)";
+      } else {
+        pendingJoeQuestion = null;
+        speechBubble.style.borderColor = "";
+        speechBubble.style.boxShadow = "";
+      }
+
       setExpression(getMoodForPhrase(phrase));
       character.style.animation = "charBounce 0.5s ease";
       setTimeout(() => character.style.animation = "charFloat 3s ease-in-out infinite", 500);
@@ -767,6 +791,15 @@
       if (clickTimer) return; // already waiting
       clickTimer = setTimeout(function() {
         clickTimer = null;
+        // If Joe asked a question, single click answers it via Quick Ask
+        if (pendingJoeQuestion) {
+          var q = pendingJoeQuestion;
+          pendingJoeQuestion = null;
+          speechBubble.style.borderColor = "";
+          speechBubble.style.boxShadow = "";
+          showQuickAskInput(q);
+          return;
+        }
         if (chatOpen) {
           closeChat();
         } else {
@@ -953,6 +986,16 @@
     // IPC for changing name from tray — relaunch onboarding
     window.electronAPI.onChangeName && window.electronAPI.onChangeName(() => {
       // Handled by main process showing onboarding again
+    });
+
+    // Mood update from main process — drives resting expression
+    window.electronAPI.onJoeMoodUpdate && window.electronAPI.onJoeMoodUpdate(function(mood) {
+      currentJoeMood = mood || "content";
+      var expr = MOOD_EXPRESSION[currentJoeMood] || "neutral";
+      // Only update resting expression if no module dialog or special state is active
+      if (!moduleDialogActive && !calendarReminder && !chatOpen) {
+        setExpression(expr);
+      }
     });
 
     // ── Module Notifications ──
@@ -1293,7 +1336,8 @@
     });
 
     // Quick Ask: small input → screenshot + AI → answer in bubble
-    function showQuickAskInput() {
+    // pendingQ: optional — Joe's pending question the user is responding to
+    function showQuickAskInput(pendingQ) {
       var old = document.getElementById("module-dialog");
       if (old) old.remove();
 
@@ -1301,8 +1345,16 @@
       dialog.id = "module-dialog";
       dialog.style.cssText = "position:fixed; bottom:120px; right:20px; background:rgba(20,20,20,0.95); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:14px 16px; max-width:280px; z-index:9000; font-size:12px; color:#ccc; backdrop-filter:blur(20px);";
 
+      // If responding to Joe's question, show context hint
+      if (pendingQ) {
+        var hint = document.createElement("div");
+        hint.textContent = "\u201c" + pendingQ + "\u201d";
+        hint.style.cssText = "margin-bottom:8px; color:#666; font-size:10px; font-style:italic; border-bottom:1px solid rgba(255,255,255,0.07); padding-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;";
+        dialog.appendChild(hint);
+      }
+
       var label = document.createElement("div");
-      label.textContent = "ask me anything about what's on screen";
+      label.textContent = pendingQ ? "your answer (or ask anything else)" : "ask me anything about what's on screen";
       label.style.cssText = "margin-bottom:10px; color:#FFD700; font-size:11px;";
       dialog.appendChild(label);
 

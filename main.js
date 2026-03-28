@@ -12,6 +12,8 @@ const emailMonitor = require("./modules/email-monitor");
 const gmailMonitor = require("./modules/gmail-monitor");
 const { getConfig } = require("./modules/config");
 const joePersonality = require("./modules/joe-personality");
+const joeMemory = require("./modules/joe-memory");
+const joeCharacter = require("./modules/joe-character");
 
 let mainWindow = null;
 let tray = null;
@@ -133,6 +135,10 @@ function createTray() {
           mainWindow.webContents.send("set-username", name);
         });
       },
+    },
+    {
+      label: "Sync Claude Memory",
+      click: () => showSyncMemoryDialog(),
     },
     { type: "separator" },
     {
@@ -276,9 +282,35 @@ ipcMain.on("quick-ask", (event, question) => {
   if (!question || !question.trim()) return;
   const tmpFile = path.join(os.tmpdir(), `joe-quickask-${Date.now()}.png`);
 
+  // Capture context before hiding window
+  const days = joeMemory.getRelationshipDays();
+  const totalInteractions = joeMemory.getTotalInteractions();
+  const mood = joeMemory.getCurrentMood();
+  const settings = loadSettings();
+  const currentUserName = settings.name || "Andrea";
+
+  const identity = joeCharacter.getIdentity(currentUserName, days, totalInteractions);
+  const moodDirective = joeCharacter.getMoodDirective(mood);
+  const memorySummary = joeMemory.getMemorySummary();
+
+  // Thread: last 3 quick-ask exchanges from this session
+  const thread = joeMemory.getQuickAskThread();
+  const threadText = thread.length
+    ? thread.map(c => `${currentUserName}: ${c.userSaid}\nJoe: ${c.joeSaid}`).join("\n\n")
+    : null;
+
+  // Recent quick-ask history (broader, for callbacks)
+  const recentQA = joeMemory.getRecentConversations(5)
+    .filter(c => c.type === "quick-ask" && c.userSaid);
+  const recentQAText = recentQA.length
+    ? recentQA.map(c => `- ${currentUserName} asked: "${c.userSaid}" → you said: "${c.joeSaid}"`).join("\n")
+    : null;
+
+  // Pending question: if user is answering something Joe just asked
+  const pendingQ = joeMemory.getRecentPendingQuestion();
+
   mainWindow.hide();
   setTimeout(() => {
-    // Take screenshot, then resize, then call Claude
     exec(`screencapture -x "${tmpFile}"`, () => {
       const tmpJpg = tmpFile.replace(".png", ".jpg");
       exec(`sips -s format jpeg -s formatOptions 90 --resampleWidth 1920 "${tmpFile}" --out "${tmpJpg}"`, () => {
@@ -293,24 +325,43 @@ ipcMain.on("quick-ask", (event, question) => {
         try { fs.unlinkSync(tmpFile); } catch(e) {}
         try { fs.unlinkSync(tmpJpg); } catch(e) {}
 
-        callClaude(
-          `You are Joe, a helpful macOS desktop assistant. The user took a screenshot of their screen and asks: "${question}"
+        const prompt = `${identity}
 
-Look at the screenshot carefully and answer their question.
-- Answer ONLY based on what you can actually see in the screenshot
-- If you can see clickable elements, buttons, or menu items that answer the question, point them out with their exact label and position
-- If the answer isn't visible on screen, say where to look (e.g. "try the menu bar" or "check the sidebar")
-- Be concise: 2-3 sentences max, casual tone
-- Answer in the same language the user used`,
-          {
-            model: "claude-haiku-4-5-20251001",
-            imageBase64: imgData,
-            mediaType,
-            maxTokens: 250,
-          }
-        ).then((response) => {
-          console.log(`Quick Ask response received`);
-          mainWindow.webContents.send("quick-ask-response", response || "hmm, not sure about that one...");
+${moodDirective}
+
+${recentQAText ? `WHAT YOU REMEMBER FROM PAST CONVERSATIONS:\n${recentQAText}\n` : ""}
+${memorySummary ? `\n${memorySummary}\n` : ""}
+${threadText ? `CONVERSATION SO FAR THIS SESSION:\n${threadText}\n` : ""}
+${pendingQ ? `NOTE: you just asked "${pendingQ.question}" in a bubble — ${currentUserName} is likely responding to that. connect your answer to that context.\n` : ""}
+${currentUserName} took a screenshot and asks: "${question}"
+
+answer rules:
+- look at the screenshot, answer based on what you actually see
+- stay in character — you are joe, not a generic AI
+- if you've answered something similar before, acknowledge it naturally ("again with the export button, ${currentUserName}...")
+- if this continues the conversation thread above, keep the thread going
+- be concise: 2-4 sentences, casual, in character
+- answer in the same language ${currentUserName} used
+- if relevant, add a brief personal observation or opinion at the end`;
+
+        callClaude(prompt, {
+          model: "claude-haiku-4-5-20251001",
+          imageBase64: imgData,
+          mediaType,
+          maxTokens: 300,
+        }).then((response) => {
+          console.log("Quick Ask response received");
+          const answer = response || "hmm, not sure about that one...";
+          mainWindow.webContents.send("quick-ask-response", answer);
+
+          // Store in memory
+          const entry = joeMemory.addConversation("quick-ask", question, answer, null, mood);
+
+          // Mark pending question as answered
+          if (pendingQ) joeMemory.markQuestionAnswered(pendingQ.question);
+
+          // Async: try to learn a fact from this interaction
+          joeMemory.maybeLearnFact(entry).catch(() => {});
         }).catch((e) => {
           console.log(`Quick Ask error: ${e.message}`);
           mainWindow.webContents.send("quick-ask-response", "couldn't figure that out, sorry...");
@@ -616,6 +667,62 @@ function showTutorial() {
   });
 }
 
+// ── Sync Claude Memory dialog ──
+let syncWindow = null;
+
+function showSyncMemoryDialog() {
+  if (syncWindow && !syncWindow.isDestroyed()) { syncWindow.focus(); return; }
+  const display = screen.getPrimaryDisplay();
+  const { width, height } = display.workAreaSize;
+  const w = 400, h = 440;
+  syncWindow = new BrowserWindow({
+    width: w, height: h,
+    x: Math.round((width - w) / 2),
+    y: Math.round((height - h) / 2),
+    frame: false, transparent: true, resizable: false,
+    minimizable: false, maximizable: false,
+    alwaysOnTop: true, skipTaskbar: true,
+    vibrancy: "under-window",
+    webPreferences: { nodeIntegration: true, contextIsolation: false },
+  });
+  syncWindow.loadFile("sync-memory.html");
+  syncWindow.on("closed", () => { syncWindow = null; });
+}
+
+ipcMain.on("sync-memory-submit", async (event, text) => {
+  // Write the pasted text to the sync file
+  const syncFile = require("path").join(require("./modules/config").CONFIG_DIR, "claude-memory-sync.txt");
+  require("fs").writeFileSync(syncFile, text, "utf8");
+
+  // Close the dialog
+  if (syncWindow && !syncWindow.isDestroyed()) {
+    syncWindow.webContents.send("sync-memory-done", { ok: true });
+    setTimeout(() => { if (syncWindow && !syncWindow.isDestroyed()) syncWindow.close(); }, 900);
+  }
+
+  // Show loading bubble on Joe
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("show-bubble", "give me a sec... 🤔");
+  }
+
+  // Run the sync
+  try {
+    const result = await joeMemory.syncFromClaudeMemory();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const msg = result.added > 0
+        ? `absorbed ${result.added} new things about you 👀`
+        : result.updated > 0
+          ? `updated ${result.updated} things I already knew 👀`
+          : "nothing new. I knew it all already.";
+      mainWindow.webContents.send("show-bubble", msg);
+    }
+  } catch (e) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("show-bubble", "sync failed. check the log.");
+    }
+  }
+});
+
 // ── Default projects for Banana Joe Games (auto-detected by Google Drive folder) ──
 function initDefaultProjects() {
   const settings = loadSettings();
@@ -657,9 +764,39 @@ app.whenReady().then(() => {
     createWindow();
     createTray();
     joePersonality.setUserName(name);
-    // Send name to renderer
+
+    // ── Daily summary at 22:00 ──
+    function scheduleDailySummary() {
+      const now = new Date();
+      const target = new Date();
+      target.setHours(22, 0, 0, 0);
+      if (target <= now) target.setDate(target.getDate() + 1);
+      const msUntil = target.getTime() - now.getTime();
+      setTimeout(() => {
+        joeMemory.generateDailySummary(name).then((summary) => {
+          if (summary) console.log("Joe daily summary:", summary.substring(0, 80));
+        }).catch(() => {});
+        joeMemory.evolveProjectOpinions(name).catch(() => {});
+        setInterval(() => {
+          joeMemory.generateDailySummary(name).catch(() => {});
+          joeMemory.evolveProjectOpinions(name).catch(() => {});
+        }, 24 * 60 * 60 * 1000);
+      }, msUntil);
+      console.log(`Joe daily summary scheduled in ${Math.round(msUntil / 60000)} minutes`);
+    }
+    scheduleDailySummary();
+
+    // Silent boot sync — absorb any new Claude.ai memory since last run
+    joeMemory.syncFromClaudeMemory().then((r) => {
+      if (r && !r.skipped && r.added > 0) {
+        console.log(`Joe boot sync: absorbed ${r.added} new facts from Claude.ai memory`);
+      }
+    }).catch(() => {});
+
+    // Send name and initial mood to renderer
     mainWindow.webContents.on("did-finish-load", () => {
       mainWindow.webContents.send("set-username", name);
+      mainWindow.webContents.send("joe-mood-update", joeMemory.getCurrentMood());
     });
 
     globalShortcut.register("CommandOrControl+Shift+C", () => {

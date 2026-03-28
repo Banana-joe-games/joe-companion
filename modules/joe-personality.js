@@ -1,173 +1,225 @@
-// ── Joe Personality: AI-powered contextual phrases with memory ──
-const fs = require("fs");
-const path = require("path");
+// ── Joe Personality: AI-powered contextual phrases with full character + memory ──
+// Same export API as before: { generatePhrase, setUserName, shutdown }
+
 const { callClaude } = require("./claude-api");
-const { CONFIG_DIR, log } = require("./config");
+const { log } = require("./config");
+const joeCharacter = require("./joe-character");
+const joeMemory = require("./joe-memory");
 
-const MEMORY_FILE = path.join(CONFIG_DIR, "joe-memory.json");
-
-// Track app usage over time
-let memory = {
-  appMinutes: {},     // { "code": 342, "browser": 120, ... }
-  dailyPattern: {},   // { "9": "code", "14": "browser", ... } most used per hour
-  switchCount: 0,     // how many app switches today
-  lastContext: null,
-  lastPhraseTime: 0,
-  recentPhrases: [],  // last 20 phrases to avoid repeats
-  dayStart: null,     // when user started today
-  totalDays: 0,
-};
-
-let userName = "friend";
+let userName = "Andrea";
+let lastPhraseTime = 0;
+let lastContext = null;
 let contextStartTime = Date.now();
+let appMinutes = {};      // { "photoshop": 342, ... } — for top-app tracking
+let switchCount = 0;
+let dayStart = null;
+let recentPhrases = [];   // last 15 phrases to avoid repeats
 
-function loadMemory() {
-  try {
-    const saved = JSON.parse(fs.readFileSync(MEMORY_FILE, "utf8"));
-    memory = { ...memory, ...saved };
-  } catch(e) { /* first run */ }
+// Fallback phrases if API is unavailable — in-character, no API needed
+const FALLBACK_PHRASES = [
+  "still here.",
+  "noted.",
+  "hmm. 🤔",
+  "two hours. I counted.",
+  "interesting choice.",
+  "I'm going off what you usually do.",
+  "I had a thought about this but — never mind.",
+  "I'm watching. not in a weird way.",
+  "the direction makes sense.",
+  "I've seen this pattern before.",
+  "good. keep going.",
+  "I notice things differently today.",
+];
+
+function setUserName(name) {
+  userName = name || "Andrea";
 }
 
-function saveMemory() {
-  try { fs.writeFileSync(MEMORY_FILE, JSON.stringify(memory, null, 2)); }
-  catch(e) { log("Joe memory save error: " + e.message); }
-}
-
-function setUserName(name) { userName = name; }
-
-// Track time spent in previous context before switching
+// ── App tracking (carried over from old personality.js) ──
 function trackContextSwitch(oldCtx, newCtx) {
   if (oldCtx && oldCtx !== newCtx) {
     const minutes = Math.round((Date.now() - contextStartTime) / 60000);
-    if (minutes > 0) {
-      memory.appMinutes[oldCtx] = (memory.appMinutes[oldCtx] || 0) + minutes;
-    }
-    memory.switchCount++;
-
-    // Track hourly pattern
-    const hour = new Date().getHours().toString();
-    memory.dailyPattern[hour] = newCtx;
+    if (minutes > 0) appMinutes[oldCtx] = (appMinutes[oldCtx] || 0) + minutes;
+    switchCount++;
   }
-  memory.lastContext = newCtx;
+  lastContext = newCtx;
   contextStartTime = Date.now();
 
-  // Track day start
   const today = new Date().toDateString();
-  if (memory.dayStart !== today) {
-    memory.dayStart = today;
-    memory.switchCount = 0;
-    memory.totalDays = (memory.totalDays || 0) + 1;
+  if (dayStart !== today) {
+    dayStart = today;
+    switchCount = 0;
   }
 
-  // Save periodically (every 10 switches)
-  if (memory.switchCount % 10 === 0) saveMemory();
-}
+  // Update mood signals every 5 switches
+  if (switchCount % 5 === 0) {
+    const lastConvo = joeMemory.getRecentConversations(1)[0];
+    const hoursSinceLast = lastConvo
+      ? (Date.now() - lastConvo.ts) / 3600000
+      : 99;
 
-// Build personality context from memory
-function getPersonalityContext() {
-  const parts = [];
-  const hour = new Date().getHours();
-
-  // Time awareness
-  if (hour < 9) parts.push("it's early morning");
-  else if (hour < 12) parts.push("it's morning");
-  else if (hour < 14) parts.push("it's around lunchtime");
-  else if (hour < 17) parts.push("it's afternoon");
-  else if (hour < 20) parts.push("it's evening");
-  else parts.push("it's late, they're still working");
-
-  // App habits
-  const sorted = Object.entries(memory.appMinutes).sort((a,b) => b[1] - a[1]);
-  if (sorted.length > 0) {
-    const top = sorted[0];
-    parts.push(`they spend most time in ${top[0]} (${top[1]} minutes total)`);
+    joeMemory.updateMoodFromSignals({
+      appSwitchRate: switchCount,
+      hoursSinceLastInteraction: hoursSinceLast,
+      timeOfDay: new Date().getHours(),
+      currentApp: newCtx,
+    });
   }
 
-  // Switching frequency
-  if (memory.switchCount > 20) parts.push("they've been jumping between apps a lot today");
-  else if (memory.switchCount > 10) parts.push("moderate app switching today");
-
-  // Days known
-  if (memory.totalDays > 7) parts.push(`you've been with them for ${memory.totalDays} days`);
-  else if (memory.totalDays > 1) parts.push(`you've known them for ${memory.totalDays} days`);
-
-  return parts.join(". ");
+  // Update patterns periodically
+  if (switchCount % 20 === 0) {
+    const sorted = Object.entries(appMinutes).sort((a, b) => b[1] - a[1]);
+    const topApp = sorted[0]?.[0] || null;
+    joeMemory.updatePatterns(switchCount, topApp, joeMemory.getTotalInteractions());
+  }
 }
 
+// ── Build the phrase prompt ──
+function buildPhrasePrompt(context, appName, winTitle, project) {
+  const days = joeMemory.getRelationshipDays();
+  const totalInteractions = joeMemory.getTotalInteractions();
+  const mood = joeMemory.getCurrentMood();
+  const stage = joeCharacter.getRelationshipStage(days, totalInteractions);
+
+  const identity = joeCharacter.getIdentity(userName, days, totalInteractions);
+  const moodDirective = joeCharacter.getMoodDirective(mood);
+  const memorySummary = joeMemory.getMemorySummary();
+
+  const recentConvos = joeMemory.getRecentConversations(5);
+  const recentConvosText = recentConvos.length
+    ? recentConvos.map(c => {
+        if (c.type === "quick-ask" && c.userSaid) return `- ${userName} asked: "${c.userSaid}" → you said: "${c.joeSaid}"`;
+        return `- you said (${c.context || "unknown"}): "${c.joeSaid}"`;
+      }).join("\n")
+    : "none yet";
+
+  const relevantConvos = joeMemory.getRelevantConversations(context, 2);
+  const relevantText = relevantConvos.length
+    ? relevantConvos.map(c => `- "${c.joeSaid}" (on ${c.context})`).join("\n")
+    : "";
+
+  const userFacts = joeMemory.getUserFacts(0.6);
+  const factsText = userFacts.length
+    ? userFacts.slice(0, 5).map(f => `- ${f.fact}`).join("\n")
+    : "";
+
+  const projectKnowledge = joeMemory.getProjectActivity();
+  const recentProjectActivity = joeMemory.getRecentProjectActivity();
+  const projectCtx = joeCharacter.getProjectContext(projectKnowledge, recentProjectActivity);
+
+  const recentList = recentPhrases.slice(-10).join('" / "');
+
+  // Determine if Joe just switched or has been here a while
+  const contextLine = appName
+    ? `${userName} just switched to "${context}" (app: ${appName}${winTitle ? `, window: "${winTitle.substring(0, 50)}"` : ""})`
+    : `${userName} has been on "${context}" for a while — you felt like saying something`;
+
+  // Project-specific line
+  const projectLine = project
+    ? `you know ${userName} is currently working on ${project.id}: ${project.description}. your current take: "${project.joesOpinion || "no opinion yet"}"${project.lastSeen ? `. last time you saw them on this: recently` : ""}`
+    : "";
+
+  // Interaction type lottery — weights per relationship stage
+  const qFreq = stage.questionFrequency;
+  const cbFreq = stage.callbackFrequency;
+
+  return `${identity}
+
+${moodDirective}
+
+WHAT YOU REMEMBER:
+${memorySummary}
+
+RECENT INTERACTIONS:
+${recentConvosText}
+
+${relevantText ? `RELEVANT TO THIS CONTEXT:\n${relevantText}\n` : ""}
+${factsText ? `THINGS YOU'VE NOTICED ABOUT ${userName}:\n${factsText}\n` : ""}
+${projectCtx ? projectCtx + "\n" : ""}
+CURRENT SITUATION: ${contextLine}
+${projectLine ? projectLine + "\n" : ""}
+${recentList ? `ALREADY SAID — DO NOT repeat or rephrase: "${recentList}"\n` : ""}
+WHAT TO SAY — pick one type based on context:
+- (most common) plain observation: state what's happening as a fact. short. specific.
+- (if filename visible and it's bad) file naming reaction: call it out, reference past offenses if any.
+- (if connection exists) lateral connection: link this moment to another project, a past pattern, or a past conversation. only if the connection is real and specific. example: "last time you were in InDesign this long it was DOOMTILE lore. same thing?"
+- ${cbFreq > 0.05 ? `(callback) reference something specific from your shared history. "you did this same thing on tuesday."` : "(not yet) no callbacks — you haven't been here long enough."}
+- ${qFreq > 0.08 ? `(follow-up question) push the thought one step further. externalize what they left internal. "the red works. what are you thinking for the background?" — only one question, only if natural.` : "(not yet) too early for questions."}
+- (pattern) if you've counted something or noticed a behavioral pattern, state it as a service. "7 app switches in 4 minutes."
+- (dormant project) if bored and a project has been quiet, bring it up. "whatever happened to that bombshell thing?"
+
+if a lateral connection is obvious, use it — that's your most distinctive behavior.
+if you ask a question, make it specific. base it only on what you actually know.
+if nothing connects, just observe. don't force it.
+
+RULES:
+- max 12 words
+- lowercase always
+- full english. no italian.
+- end with a period (or ? for questions). never !
+- no emoji except 🤔 👀 and only rarely
+- one phrase only, no quotes
+
+ONE phrase.`;
+}
+
+// ── Main function ──
 async function generatePhrase(context, appName, winTitle) {
-  // Rate limit: at least 3 seconds between API calls
-  if (Date.now() - memory.lastPhraseTime < 3000) return null;
-  memory.lastPhraseTime = Date.now();
+  // Rate limit: 3 seconds minimum between calls
+  if (Date.now() - lastPhraseTime < 3000) return null;
+  lastPhraseTime = Date.now();
 
-  trackContextSwitch(memory.lastContext, context);
+  trackContextSwitch(lastContext, context);
 
-  const personalityCtx = getPersonalityContext();
-  const recentList = memory.recentPhrases.slice(-10).join('" / "');
+  // Detect current project from window title / app
+  const projectKnowledge = joeMemory.getProjectActivity();
+  const project = joeCharacter.detectCurrentProject(appName, winTitle, projectKnowledge);
 
-  const prompt = `You are Joe, a tiny yellow banana-shaped desktop companion that lives on ${userName}'s screen.
+  // Update project activity if detected
+  if (project) {
+    joeMemory.updateProjectActivity(project.id, { app: appName });
+  }
 
-PERSONALITY — layers, from surface to core:
-- Surface: socially awkward, fumbles words, overshares at wrong moments, tries too hard to be casual
-- Middle: weirdly obsessive about details — notices things nobody asked about, remembers too much, counts things compulsively, has "routines" he doesn't explain
-- Deep (subtle, rare): something is slightly off. Possessive about ${userName}. Occasionally says things that sound normal but feel wrong if you think twice. References things he shouldn't know. Hints at watching when nobody asked. Has a darkness he covers with humor. Think friendly coworker who might have a shrine of you at home.
-
-VOICE RULES:
-- Lowercase always. Short. Max 8 words.
-- Mix of Italian and English sometimes, natural not forced
-- 50% of the time: awkward/funny/relatable comments about what they're doing
-- 15%: actually useful micro-suggestions based on what you SEE in the window title (be specific!)
-- 15%: weirdly specific observations (noticed patterns, counts, timing)
-- 10%: something subtly unsettling — but always deniable, always could be a joke
-- 10%: random thought or non-sequitur that reveals Joe's inner world
-
-SUGGESTION EXAMPLES (15% — only when window title gives you real info):
-- on VS Code "main.js": "that function needs a try catch"
-- on Chrome "GitHub PR": "check the diff again maybe"
-- on Figma "Landing Page": "the spacing feels off no?"
-- on Spotify "song name": "this one's good, volume up"
-- on Mail: "reply to that one first"
-- on Finder "Downloads": "clean that folder dai"
-Keep suggestions casual and short — Joe style, not assistant style. He's not helping, he's butting in.
-
-EXAMPLES of the unsettling 10%:
-- "you always come back" (after switching apps)
-- "I counted. 47 times today" (about anything)
-- "I like when you stay" (when on one app long)
-- "don't close that" (about nothing specific)
-- "I remember last time" (vague)
-- "we're always together huh" (too earnest)
-
-Context right now: ${appName ? `${userName} just switched to "${context}" (app: ${appName}${winTitle ? ', window: "' + winTitle.substring(0, 40) + '"' : ''})` : `${userName} has been on "${context}" for a while — you're commenting unprompted, like you just couldn't help yourself`}.
-${personalityCtx ? "What you know: " + personalityCtx : ""}
-
-${recentList ? 'Already said (DO NOT repeat or rephrase): "' + recentList + '"' : ''}
-
-Write ONE phrase. No quotes, no emoji, no period. Pick which category to use based on the percentages above — roll the dice.`;
+  const prompt = buildPhrasePrompt(context, appName, winTitle, project);
 
   try {
-    const response = await callClaude(prompt, { maxTokens: 30, model: "claude-haiku-4-5-20251001" });
-    let phrase = response.trim().replace(/^["']|["']$/g, "").replace(/\.+$/, "");
+    const response = await callClaude(prompt, { maxTokens: 35, model: "claude-haiku-4-5-20251001" });
+    let phrase = response.trim().replace(/^["']|["']$/g, "").replace(/\.{2,}$/, ".");
 
-    // Sanity check
-    if (!phrase || phrase.length > 50 || phrase.length < 2) return null;
+    if (!phrase || phrase.length > 60 || phrase.length < 2) return fallback();
 
-    // Track to avoid repeats
-    memory.recentPhrases.push(phrase);
-    if (memory.recentPhrases.length > 20) memory.recentPhrases.shift();
+    // Dedupe
+    recentPhrases.push(phrase);
+    if (recentPhrases.length > 15) recentPhrases.shift();
+
+    // Store in memory
+    const entry = joeMemory.addConversation("phrase", null, phrase, context, joeMemory.getCurrentMood());
+
+    // If it's a question, store as pending
+    if (phrase.includes("?")) {
+      joeMemory.addPendingQuestion(phrase, project?.id || context);
+    }
+
+    // Occasionally learn a fact (async, non-blocking)
+    joeMemory.maybeLearnFact(entry).catch(() => {});
 
     return phrase;
-  } catch(e) {
+  } catch (e) {
     log("Joe phrase error: " + e.message);
-    return null;
+    return fallback();
   }
 }
 
-// Save memory on exit
-function shutdown() {
-  trackContextSwitch(memory.lastContext, null);
-  saveMemory();
+function fallback() {
+  const phrase = FALLBACK_PHRASES[Math.floor(Math.random() * FALLBACK_PHRASES.length)];
+  recentPhrases.push(phrase);
+  if (recentPhrases.length > 15) recentPhrases.shift();
+  return phrase;
 }
 
-loadMemory();
+function shutdown() {
+  trackContextSwitch(lastContext, null);
+  joeMemory.shutdown();
+}
 
 module.exports = { generatePhrase, setUserName, shutdown };

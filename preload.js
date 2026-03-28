@@ -91,6 +91,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.send("joe-phrase-request", context, app, title),
   onJoePhrase: (callback) =>
     ipcRenderer.on("joe-phrase", (event, phrase) => callback(phrase)),
+  onJoeMoodUpdate: (callback) =>
+    ipcRenderer.on("joe-mood-update", (event, mood) => callback(mood)),
 
   saveApiKey: (key) =>
     ipcRenderer.send("save-api-key", key),
