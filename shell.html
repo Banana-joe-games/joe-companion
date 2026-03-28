@@ -1029,6 +1029,98 @@
       }
     });
 
+    // ── Manage Projects dialog ──
+    var pendingFolderCallback = null;
+    window.electronAPI.onProjectFolderPicked && window.electronAPI.onProjectFolderPicked(function(folderPath) {
+      if (pendingFolderCallback) pendingFolderCallback(folderPath);
+    });
+
+    window.electronAPI.onManageProjects && window.electronAPI.onManageProjects(function(projects) {
+      var old = document.getElementById("module-dialog");
+      if (old) old.remove();
+
+      var dialog = document.createElement("div");
+      dialog.id = "module-dialog";
+      dialog.style.cssText = "position:fixed; bottom:120px; right:20px; background:rgba(20,20,20,0.95); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:14px 16px; max-width:320px; z-index:9000; font-size:12px; color:#ccc; backdrop-filter:blur(20px);";
+
+      var title = document.createElement("div");
+      title.textContent = "your projects";
+      title.style.cssText = "color:#FFD700; font-size:13px; font-weight:600; margin-bottom:10px;";
+      dialog.appendChild(title);
+
+      var list = document.createElement("div");
+      list.style.cssText = "max-height:200px; overflow-y:auto; margin-bottom:10px;";
+
+      if (projects.length === 0) {
+        var empty = document.createElement("div");
+        empty.textContent = "no projects yet — add one below";
+        empty.style.cssText = "color:#666; font-style:italic; margin-bottom:8px;";
+        list.appendChild(empty);
+      } else {
+        projects.forEach(function(p) {
+          var row = document.createElement("div");
+          row.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.05);";
+          var name = document.createElement("span");
+          name.textContent = p.name;
+          row.appendChild(name);
+          var del = document.createElement("button");
+          del.textContent = "✕";
+          del.style.cssText = "background:none; border:none; color:#666; font-size:12px; cursor:pointer; padding:2px 6px;";
+          del.addEventListener("click", function() {
+            window.electronAPI.removeProject(p.id);
+            row.remove();
+          });
+          row.appendChild(del);
+          list.appendChild(row);
+        });
+      }
+      dialog.appendChild(list);
+
+      // Add project form
+      var addRow = document.createElement("div");
+      addRow.style.cssText = "display:flex; gap:4px; margin-bottom:8px;";
+      var nameInput = document.createElement("input");
+      nameInput.type = "text";
+      nameInput.placeholder = "project name";
+      nameInput.style.cssText = "flex:1; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); color:#fff; padding:6px 8px; border-radius:6px; font-size:11px; font-family:inherit; outline:none;";
+      addRow.appendChild(nameInput);
+      dialog.appendChild(addRow);
+
+      var btnRow = document.createElement("div");
+      btnRow.style.cssText = "display:flex; gap:6px;";
+
+      var addBtn = document.createElement("button");
+      addBtn.textContent = "Add";
+      addBtn.style.cssText = "background:rgba(255,215,0,0.3); border:1px solid rgba(255,215,0,0.4); color:#FFD700; padding:6px 12px; border-radius:6px; font-size:11px; cursor:pointer; font-family:inherit;";
+      addBtn.addEventListener("click", function() {
+        var n = nameInput.value.trim();
+        if (!n) {
+          nameInput.style.borderColor = "#cc4444";
+          setTimeout(function() { nameInput.style.borderColor = "rgba(255,255,255,0.15)"; }, 1500);
+          return;
+        }
+        // Open Finder to pick parent folder, then main.js creates "Name - To Organize" inside
+        pendingFolderCallback = function(fp) {
+          window.electronAPI.addProject({ name: n, parentFolder: fp });
+          dialog.remove();
+          moduleDialogActive = false;
+          pendingFolderCallback = null;
+        };
+        window.electronAPI.pickProjectFolder();
+      });
+      btnRow.appendChild(addBtn);
+
+      var closeBtn = document.createElement("button");
+      closeBtn.textContent = "Done";
+      closeBtn.style.cssText = "background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); color:#888; padding:6px 10px; border-radius:6px; font-size:11px; cursor:pointer; font-family:inherit;";
+      closeBtn.addEventListener("click", function() { dialog.remove(); moduleDialogActive = false; });
+      btnRow.appendChild(closeBtn);
+
+      dialog.appendChild(btnRow);
+      document.getElementById("app").appendChild(dialog);
+      moduleDialogActive = true;
+    });
+
     // Clipboard suggestion
     window.electronAPI.onClipboardSuggestion && window.electronAPI.onClipboardSuggestion(function(data) {
       showModuleDialog(data.message, [

@@ -12,23 +12,19 @@ const WATCH_DIRS = [
   path.join(os.homedir(), "Desktop"),
 ];
 
-const GDRIVE_BASE = path.join(
-  os.homedir(),
-  "Library/CloudStorage/GoogleDrive-info@bananajoe.games/Shared drives/Banana Joe Production"
-);
-
-// Projects and their inbox folders
-const PROJECTS = [
-  { id: "DOOMTILE", code: "DT", name: "Doomtile" },
-  { id: "JUJU", code: "JJ", name: "Juju" },
-  { id: "BOMBSHELL", code: "BS", name: "Bombshell" },
-  { id: "HUNGER_CHAIN", code: "HC", name: "Hunger Chain" },
-  { id: "SOUND_OF_VIOLENCE", code: "SV", name: "Sound of Violence" },
-];
-
-function getInboxPath(project) {
-  const folderName = project.id.replace(/_/g, " ");
-  return path.join(GDRIVE_BASE, folderName, `${folderName} - To Organize`);
+// Projects are loaded from joe-settings.json
+// Each project: { id, name, inboxPath }
+function getProjects() {
+  try {
+    const settingsPath = path.join(
+      process.env.HOME || os.homedir(),
+      "Library/Application Support/clippy-claude/joe-settings.json"
+    );
+    const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    return settings.projects || [];
+  } catch (e) {
+    return [];
+  }
 }
 
 let watchers = [];
@@ -108,7 +104,7 @@ function showProjectPicker(filename, filePath) {
       step: "pick-project",
       filename,
       filePath,
-      allProjects: PROJECTS,
+      allProjects: getProjects(),
     });
   }
 }
@@ -116,16 +112,10 @@ function showProjectPicker(filename, filePath) {
 // Simple pattern matching — check if filename contains project name/code
 function simpleMatch(filename) {
   const lower = filename.toLowerCase();
-  for (const p of PROJECTS) {
-    const name = p.id.replace(/_/g, " ").toLowerCase();
-    const nameNoSpace = p.id.replace(/_/g, "").toLowerCase();
-    if (
-      lower.includes(name) ||
-      lower.includes(nameNoSpace) ||
-      lower.includes(p.code.toLowerCase() + "-") ||
-      lower.includes(p.code.toLowerCase() + "_") ||
-      lower.includes(p.code.toLowerCase() + " ")
-    ) {
+  for (const p of getProjects()) {
+    const name = p.name.toLowerCase();
+    const id = p.id.toLowerCase();
+    if (lower.includes(name) || lower.includes(id)) {
       return p;
     }
   }
@@ -147,7 +137,7 @@ function handleResponse(action, data) {
         step: "pick-project",
         filename: data.filename,
         filePath: data.filePath,
-        allProjects: PROJECTS,
+        allProjects: getProjects(),
       });
       break;
 
@@ -164,14 +154,14 @@ function handleResponse(action, data) {
 // ── Move file to project inbox ──
 
 function moveToInbox(filePath, projectId) {
-  const project = PROJECTS.find((p) => p.id === projectId);
+  const project = getProjects().find((p) => p.id === projectId);
   if (!project) {
     log(`Unknown project: ${projectId}`);
     sendToRenderer("show-bubble", "hmm, don't know that project...");
     return;
   }
 
-  const inboxDir = getInboxPath(project);
+  const inboxDir = project.inboxPath;
   const filename = path.basename(filePath);
 
   // Check inbox exists

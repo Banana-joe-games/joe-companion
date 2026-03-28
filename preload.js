@@ -26,6 +26,18 @@ contextBridge.exposeInMainWorld("electronAPI", {
   onQuickAskResponse: (callback) =>
     ipcRenderer.on("quick-ask-response", (event, text) => callback(text)),
 
+  // ── Project management ──
+  onManageProjects: (callback) =>
+    ipcRenderer.on("manage-projects", (event, projects) => callback(projects)),
+  addProject: (data) =>
+    ipcRenderer.send("add-project", data),
+  removeProject: (id) =>
+    ipcRenderer.send("remove-project", id),
+  pickProjectFolder: () =>
+    ipcRenderer.send("pick-project-folder"),
+  onProjectFolderPicked: (callback) =>
+    ipcRenderer.on("project-folder-picked", (event, path) => callback(path)),
+
   // ── Module events ──
   onFileWatcherStep: (callback) =>
     ipcRenderer.on("file-watcher-step", (event, data) => callback(data)),

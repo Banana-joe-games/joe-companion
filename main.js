@@ -84,7 +84,7 @@ function createTray() {
       const cx = size / 2, cy = size / 2, r = size / 2 - 1;
       const dx = x - cx, dy = y - cy;
       if (dx * dx + dy * dy <= r * r) {
-        buf[i] = 255; buf[i+1] = 215; buf[i+2] = 0; buf[i+3] = 255;
+        buf[i] = 0; buf[i+1] = 215; buf[i+2] = 255; buf[i+3] = 255; // BGRA: yellow
       } else {
         buf[i] = 0; buf[i+1] = 0; buf[i+2] = 0; buf[i+3] = 0;
       }
@@ -115,9 +115,21 @@ function createTray() {
     },
     { type: "separator" },
     {
+      label: "Manage Projects",
+      click: () => {
+        mainWindow.webContents.send("manage-projects", loadSettings().projects || []);
+      },
+    },
+    {
+      label: "Tutorial",
+      click: () => {
+        showTutorial();
+      },
+    },
+    {
       label: "Change Name",
       click: () => {
-        showOnboarding((name) => {
+        showChangeName((name) => {
           mainWindow.webContents.send("set-username", name);
         });
       },
@@ -131,8 +143,8 @@ function createTray() {
         { label: "Ctrl+Q  →  Quick Chat", enabled: false },
         { label: "Ctrl+S  →  Screenshot to Chat", enabled: false },
         { label: "Ctrl+A  →  Next Calendar Event", enabled: false },
-        { label: "Ctrl+M  →  Check Gmail", enabled: false },
         { label: "Cmd+Shift+C  →  Show / Hide Joe", enabled: false },
+        ...(hasGmailOAuth ? [{ label: "Ctrl+M  →  Check Gmail", enabled: false }] : []),
       ],
     },
   ];
@@ -308,6 +320,47 @@ Look at the screenshot carefully and answer their question.
   }, 500);
 });
 
+// ── Project management IPC ──
+ipcMain.on("add-project", (event, projectData) => {
+  // projectData: { name, parentFolder }
+  const settings = loadSettings();
+  const projects = settings.projects || [];
+  const id = projectData.name.toUpperCase().replace(/\s+/g, "_");
+  if (projects.find((p) => p.id === id)) return; // already exists
+
+  // Create "Name - To Organize" inside the chosen parent folder
+  const folderName = `${projectData.name} - To Organize`;
+  const inboxPath = path.join(projectData.parentFolder, folderName);
+  if (!fs.existsSync(inboxPath)) {
+    fs.mkdirSync(inboxPath, { recursive: true });
+    console.log(`Created inbox folder: ${inboxPath}`);
+  }
+
+  projects.push({ id, name: projectData.name, inboxPath });
+  saveSettings({ projects });
+  console.log(`Added project: ${projectData.name} → ${inboxPath}`);
+  mainWindow.webContents.send("show-bubble", `added ${projectData.name} 👍`);
+});
+
+ipcMain.on("remove-project", (event, projectId) => {
+  const settings = loadSettings();
+  const projects = (settings.projects || []).filter((p) => p.id !== projectId);
+  saveSettings({ projects });
+  console.log(`Removed project: ${projectId}`);
+});
+
+ipcMain.on("pick-project-folder", (event) => {
+  dialog.showOpenDialog({
+    title: "Select project inbox folder",
+    properties: ["openDirectory", "createDirectory"],
+    buttonLabel: "Select",
+  }).then((result) => {
+    if (!result.canceled && result.filePaths.length > 0) {
+      mainWindow.webContents.send("project-folder-picked", result.filePaths[0]);
+    }
+  });
+});
+
 // ── Window ──
 function createWindow() {
   const display = screen.getPrimaryDisplay();
@@ -427,10 +480,10 @@ function showOnboarding(callback) {
   const display = screen.getPrimaryDisplay();
   const { width, height } = display.workAreaSize;
   onboardingWindow = new BrowserWindow({
-    width: 340,
-    height: 260,
-    x: Math.round((width - 340) / 2),
-    y: Math.round((height - 260) / 2),
+    width: 380,
+    height: 520,
+    x: Math.round((width - 380) / 2),
+    y: Math.round((height - 520) / 2),
     frame: false,
     transparent: true,
     resizable: false,
@@ -454,8 +507,85 @@ function showOnboarding(callback) {
   });
 }
 
+// ── Change Name (simple, no tutorial) ──
+function showChangeName(callback) {
+  const display = screen.getPrimaryDisplay();
+  const { width, height } = display.workAreaSize;
+  const w = 340, h = 220;
+  const changeWin = new BrowserWindow({
+    width: w, height: h,
+    x: Math.round((width - w) / 2),
+    y: Math.round((height - h) / 2),
+    frame: false, transparent: true, resizable: false,
+    minimizable: false, maximizable: false,
+    alwaysOnTop: true, skipTaskbar: true,
+    vibrancy: "under-window",
+    webPreferences: { nodeIntegration: true, contextIsolation: false },
+  });
+  changeWin.loadFile("change-name.html");
+  ipcMain.once("change-name-done", (event, data) => {
+    saveSettings({ name: data.name });
+    changeWin.close();
+    callback(data.name);
+  });
+}
+
+// ── Tutorial (no name step, just the walkthrough) ──
+function showTutorial() {
+  const display = screen.getPrimaryDisplay();
+  const { width, height } = display.workAreaSize;
+  const w = 380, h = 520;
+  const tutorialWin = new BrowserWindow({
+    width: w, height: h,
+    x: Math.round((width - w) / 2),
+    y: Math.round((height - h) / 2),
+    frame: false, transparent: true, resizable: false,
+    minimizable: false, maximizable: false,
+    alwaysOnTop: true, skipTaskbar: true,
+    vibrancy: "under-window",
+    webPreferences: { nodeIntegration: true, contextIsolation: false },
+  });
+  tutorialWin.loadFile("onboarding.html", { query: { mode: "tutorial" } });
+  ipcMain.once("onboarding-done", () => {
+    tutorialWin.close();
+  });
+}
+
+// ── Default projects for Banana Joe Games (auto-detected by Google Drive folder) ──
+function initDefaultProjects() {
+  const settings = loadSettings();
+  if (settings.projects && settings.projects.length > 0) return; // already configured
+
+  const gdriveBase = path.join(os.homedir(),
+    "Library/CloudStorage/GoogleDrive-info@bananajoe.games/Shared drives/Banana Joe Production"
+  );
+  if (!fs.existsSync(gdriveBase)) return; // not a BJG machine
+
+  const defaults = [
+    { id: "DOOMTILE", name: "Doomtile" },
+    { id: "JUJU", name: "Juju" },
+    { id: "BOMBSHELL", name: "Bombshell" },
+    { id: "HUNGER_CHAIN", name: "Hunger Chain" },
+    { id: "SOUND_OF_VIOLENCE", name: "Sound of Violence" },
+  ];
+
+  const projects = defaults.map((p) => {
+    const folderName = p.id.replace(/_/g, " ");
+    return {
+      ...p,
+      inboxPath: path.join(gdriveBase, folderName, `${folderName} - To Organize`),
+    };
+  }).filter((p) => fs.existsSync(p.inboxPath));
+
+  if (projects.length > 0) {
+    saveSettings({ projects });
+    console.log(`Auto-configured ${projects.length} BJG projects`);
+  }
+}
+
 // ── App lifecycle ──
 app.whenReady().then(() => {
+  initDefaultProjects();
   const settings = loadSettings();
 
   function startApp(name) {
