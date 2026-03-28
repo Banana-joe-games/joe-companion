@@ -95,85 +95,6 @@
       transition: border-color 0.3s; line-height: 1.4;
     }
     #speech-bubble.alert { border-color: #FFD700; }
-    /* Walkie Talkie — floats independently */
-    #walkie-container {
-      display: none;
-      width: 260px;
-      background: #1a1a1a;
-      border-radius: 16px;
-      border: 1px solid #2a2a2a;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05);
-      flex-direction: column;
-      padding: 12px;
-      position: absolute;
-      bottom: 110px;
-      right: 20px;
-      z-index: 100;
-      animation: fadeIn 0.2s ease-out;
-    }
-    #walkie-container.open { display: flex; }
-    .walkie-header {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 10px;
-    }
-    .walkie-header .label {
-      font-size: 11px; font-weight: 500; color: #FFD700;
-      letter-spacing: 0.08em; text-transform: uppercase;
-    }
-    .walkie-status {
-      font-size: 10px; color: #555; margin-bottom: 8px;
-    }
-    .walkie-status.online { color: #4ade80; }
-    #walkie-setup {
-      display: flex; flex-direction: column; gap: 8px;
-    }
-    #walkie-setup input {
-      background: #111; border: 1px solid #333; color: #ccc;
-      padding: 6px 10px; border-radius: 8px; font-size: 12px;
-      font-family: inherit; outline: none;
-    }
-    #walkie-setup input:focus { border-color: #FFD700; }
-    #walkie-setup button {
-      background: #FFD700; color: #1a1a1a; border: none;
-      padding: 6px 12px; border-radius: 8px; font-size: 11px;
-      font-family: inherit; font-weight: 500; cursor: pointer;
-      text-transform: uppercase; letter-spacing: 0.05em;
-    }
-    #walkie-chat {
-      display: none; flex-direction: column; gap: 8px;
-    }
-    #walkie-chat.active { display: flex; }
-    #walkie-messages {
-      max-height: 80px; overflow-y: auto;
-      display: flex; flex-direction: column; gap: 4px;
-      margin-bottom: 4px;
-    }
-    .walkie-msg {
-      font-size: 11px; color: #888; padding: 4px 8px;
-      background: #111; border-radius: 6px;
-    }
-    .walkie-msg.mine { color: #FFD700; text-align: right; background: #1e1a00; }
-    .walkie-msg.trillo {
-      color: #FF6B6B; text-align: center; font-style: italic;
-      background: none;
-    }
-    #walkie-input-row {
-      display: flex; gap: 6px;
-    }
-    #walkie-input {
-      flex: 1; background: #111; border: 1px solid #333; color: #ccc;
-      padding: 6px 10px; border-radius: 8px; font-size: 12px;
-      font-family: inherit; outline: none;
-    }
-    #walkie-input:focus { border-color: #FFD700; }
-    .walkie-btn {
-      background: none; border: 1px solid #333; color: #555;
-      padding: 4px 10px; border-radius: 8px; cursor: pointer;
-      font-size: 11px; font-family: inherit; transition: all 0.15s;
-    }
-    .walkie-btn:hover { color: #fff; border-color: #555; }
-    .walkie-btn.trillo-btn { color: #FF6B6B; border-color: #FF6B6B40; }
-    .walkie-btn.trillo-btn:hover { background: #FF6B6B20; color: #FF6B6B; }
     @keyframes appShake {
       0%, 100% { transform: translateX(0); }
       10% { transform: translateX(-6px); }
@@ -206,28 +127,6 @@
       border: 1px solid #2a2a2a; border-top: none; border-left: none;
     }
     #speech-bubble.alert .tail { border-color: #FFD700; }
-    /* Room selector in walkie */
-    .walkie-room-row {
-      display: flex; gap: 6px; align-items: center; margin-bottom: 8px;
-    }
-    .walkie-room-row select {
-      flex: 1; background: #111; border: 1px solid #333; color: #ccc;
-      padding: 4px 8px; border-radius: 6px; font-size: 11px;
-      font-family: inherit; outline: none;
-    }
-    .walkie-room-row select:focus { border-color: #FFD700; }
-    .walkie-room-row input {
-      flex: 1; background: #111; border: 1px solid #333; color: #ccc;
-      padding: 4px 8px; border-radius: 6px; font-size: 11px;
-      font-family: inherit; outline: none; display: none;
-    }
-    .walkie-room-row input:focus { border-color: #FFD700; }
-    .walkie-room-row button {
-      background: none; border: 1px solid #333; color: #555;
-      padding: 4px 8px; border-radius: 6px; cursor: pointer;
-      font-size: 10px; font-family: inherit; transition: all 0.15s;
-    }
-    .walkie-room-row button:hover { color: #fff; border-color: #555; }
   </style>
 </head>
 <body>
@@ -287,26 +186,9 @@
         <line class="st2" x1="140" y1="48" x2="140" y2="72"/>
         <circle class="st0" cx="140" cy="40" r="12"/>
       </svg>
-    </div>
-  </div>
-  <div id="walkie-container">
-    <div class="walkie-header">
-      <span class="label">walkie talkie</span>
-      <button class="close-btn" id="walkie-close">&times;</button>
-    </div>
-    <div class="walkie-status" id="walkie-status">connecting...</div>
-    <div class="walkie-room-row">
-      <select id="walkie-room-select">
-        <option value="general">general</option>
-      </select>
-      <input type="text" id="walkie-new-room" placeholder="room name" maxlength="20" />
-      <button id="walkie-add-room" title="new room">+</button>
-    </div>
-    <div id="walkie-chat">
-      <div id="walkie-messages"></div>
-      <div id="walkie-input-row">
-        <input type="text" id="walkie-input" placeholder="message..." maxlength="100" />
-        <button class="walkie-btn" id="walkie-send">send</button>
+      <div id="walkie-input-popup" style="display:none; position:absolute; bottom:100%; right:0; margin-bottom:4px; z-index:9500;">
+        <input type="text" id="walkie-input" placeholder="message..." maxlength="100"
+          style="background:rgba(20,20,20,0.95); border:1px solid rgba(255,215,0,0.4); color:#fff; padding:8px 12px; border-radius:10px; font-size:12px; font-family:inherit; outline:none; width:220px; backdrop-filter:blur(20px);" />
       </div>
     </div>
   </div>
@@ -621,13 +503,28 @@
       }, 60000);
     }
 
-    // Click bubble to dismiss calendar notification
+    // Click bubble to dismiss calendar notification, walkie message, or trillo
     speechBubble.addEventListener("click", function() {
       if (calendarReminder) {
         calendarReminder = null;
         clearTimeout(calendarDismissTimer);
         speechBubble.classList.remove("alert");
         speechBubble.style.display = "none";
+        return;
+      }
+      if (walkieMsgSticky) {
+        walkieMsgSticky = false;
+        speechBubble.style.display = "none";
+        bubbleText.style.color = "";
+        setExpression("neutral");
+        return;
+      }
+      // Dismiss trillo or any other walkie bubble
+      if (bubbleText.textContent.indexOf("TRILLO") !== -1 || bubbleText.style.color === "rgb(255, 107, 107)") {
+        speechBubble.style.display = "none";
+        bubbleText.style.color = "";
+        speechBubble.classList.remove("alert");
+        setExpression("neutral");
       }
     });
 
@@ -636,8 +533,9 @@
 
     function showBubble(ctx, phrase) {
       if (chatOpen) return;
-      // Module dialogs and calendar have priority over flavor text
+      // Module dialogs, calendar, and walkie messages have priority over flavor text
       if (moduleDialogActive) return;
+      if (walkieMsgSticky) return;
       if (calendarReminder) {
         showCalendarBubble();
         return;
@@ -846,33 +744,50 @@
       chatOpen = false;
       chatContainer.classList.remove("open");
       chatContainer.classList.remove("quick-mode");
-      if (walkieOpen) {
-
-      } else {
-        speechBubble.style.display = "block";
-
-      }
+      speechBubble.style.display = "block";
       if (quickMode) {
         quickWebview.src = "about:blank";
       }
     }
 
+    var clickTimer = null;
     character.addEventListener("click", (e) => {
-      // Secret trillo: shift+click
+      // Secret trillo: shift+click (immediate, no delay)
       if (e.shiftKey && walkieReady) {
         sendWalkieMessage("", "trillo");
         playTrilloSound();
         return;
       }
-      // Quick Ask: cmd+click (or alt+click) → input → screenshot + AI response in bubble
+      // Quick Ask: cmd+click (or alt+click) → immediate
       if (e.metaKey || e.altKey) {
         showQuickAskInput();
         return;
       }
-      if (chatOpen) {
-        closeChat();
+      // Delay single-click to allow double-click detection
+      if (clickTimer) return; // already waiting
+      clickTimer = setTimeout(function() {
+        clickTimer = null;
+        if (chatOpen) {
+          closeChat();
+        } else {
+          openChat(false);
+        }
+      }, 250);
+    });
+
+    // Double-click cancels single-click timer + opens walkie input
+    character.addEventListener("dblclick", function(e) {
+      e.preventDefault();
+      if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+      // Toggle walkie input
+      if (walkieInputOpen) {
+        walkieInputPopup.style.display = "none";
+        walkieInputOpen = false;
       } else {
-        openChat(false);
+        walkieInputPopup.style.display = "block";
+        walkieInput.value = "";
+        walkieInput.focus();
+        walkieInputOpen = true;
       }
     });
 
@@ -1492,54 +1407,51 @@
       setTimeout(function() { dismissDialog(); }, timeout);
     }
 
-    // ── Walkie Talkie ──
-    let walkieOpen = false;
+    // ── Walkie Talkie (simplified) ──
     let walkieDB = null;
-    let walkieRoom = "general";
     let walkieRef = null;
     let walkiePresenceRef = null;
     let walkieListener = null;
     let walkieReady = false;
-    let customRooms = JSON.parse(localStorage.getItem("joe-rooms") || "[]");
+    let walkieInputOpen = false;
+    let walkieMsgSticky = false; // true when a received message is showing and waiting for click dismiss
 
-    const walkieContainer = document.getElementById("walkie-container");
-    const roomSelect = document.getElementById("walkie-room-select");
+    const walkieInputPopup = document.getElementById("walkie-input-popup");
+    const walkieInput = document.getElementById("walkie-input");
 
-    // Populate saved rooms
-    customRooms.forEach(function(r) {
-      var opt = document.createElement("option");
-      opt.value = r; opt.textContent = r;
-      roomSelect.appendChild(opt);
-    });
-
-    // Right-click character to open walkie
-    character.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
-      if (walkieOpen) {
-        closeWalkie();
-      } else {
-        openWalkie();
-      }
-    });
-
-    function openWalkie() {
-      walkieOpen = true;
-      walkieContainer.classList.add("open");
-      speechBubble.style.display = "none";
-      // Only resize if chat isn't open (need space for walkie panel)
-      // window stays fixed size
-    }
-
-    function closeWalkie() {
-      walkieOpen = false;
-      walkieContainer.classList.remove("open");
-      if (!chatOpen) {
+    // Enter to send message
+    walkieInput.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        var text = walkieInput.value.trim();
+        if (!text) return;
+        sendWalkieMessage(text, "message");
+        walkieInput.value = "";
+        walkieInputPopup.style.display = "none";
+        walkieInputOpen = false;
+        // Quick "sent" feedback
+        bubbleText.textContent = "sent ✓";
+        bubbleText.style.color = "#4CAF50";
         speechBubble.style.display = "block";
-
+        setTimeout(function() {
+          if (bubbleText.textContent === "sent ✓") {
+            speechBubble.style.display = "none";
+            bubbleText.style.color = "";
+          }
+        }, 1500);
       }
-    }
+      if (e.key === "Escape") {
+        walkieInputPopup.style.display = "none";
+        walkieInputOpen = false;
+      }
+    });
 
-    document.getElementById("walkie-close").addEventListener("click", closeWalkie);
+    // Click outside input popup to close it
+    document.addEventListener("click", function(e) {
+      if (walkieInputOpen && !walkieInputPopup.contains(e.target) && e.target !== character) {
+        walkieInputPopup.style.display = "none";
+        walkieInputOpen = false;
+      }
+    });
 
     // Firebase loader
     function loadFirebase(callback) {
@@ -1566,27 +1478,22 @@
     function initWalkieFirebase() {
       if (!userName) return;
       setTimeout(function() {
-        if (typeof FIREBASE_CONFIG === "undefined" || !FIREBASE_CONFIG.apiKey) {
-          document.getElementById("walkie-status").textContent = "firebase not configured";
-          document.getElementById("walkie-status").style.color = "#FF6B6B";
-          return;
-        }
+        if (typeof FIREBASE_CONFIG === "undefined" || !FIREBASE_CONFIG.apiKey) return;
         loadFirebase(function() {
           if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
           walkieDB = firebase.database();
           walkieReady = true;
-          joinRoom("general");
-          document.getElementById("walkie-chat").classList.add("active");
+          connectWalkie();
         });
       }, 500);
     }
 
     // initWalkieFirebase is called when username arrives via IPC
 
-    function joinRoom(room) {
+    function connectWalkie() {
       if (!walkieDB || !userName) return;
 
-      // Cleanup previous room
+      // Cleanup previous
       if (walkieRef && walkieListener) {
         walkieRef.off("child_added", walkieListener);
       }
@@ -1594,41 +1501,24 @@
         walkiePresenceRef.remove();
       }
 
-      walkieRoom = room;
-      walkieRef = walkieDB.ref("rooms/" + room + "/messages");
+      walkieRef = walkieDB.ref("rooms/general/messages");
 
       // Presence
-      walkiePresenceRef = walkieDB.ref("rooms/" + room + "/presence/" + userName);
+      walkiePresenceRef = walkieDB.ref("rooms/general/presence/" + userName);
       walkiePresenceRef.set(true);
       walkiePresenceRef.onDisconnect().remove();
 
-      // Watch presence
-      walkieDB.ref("rooms/" + room + "/presence").on("value", function(snap) {
-        var users = snap.val() || {};
-        var names = Object.keys(users);
-        var others = names.filter(function(n) { return n !== userName; });
-        var statusEl = document.getElementById("walkie-status");
-        if (others.length > 0) {
-          statusEl.textContent = others.join(", ") + " online";
-          statusEl.className = "walkie-status online";
-        } else {
-          statusEl.textContent = "waiting for friend...";
-          statusEl.className = "walkie-status";
-        }
-      });
-
-      // Listen for new messages
+      // Listen for new messages only (no history)
       var walkieStartTime = Date.now();
       walkieListener = walkieRef.orderByChild("ts").limitToLast(1).on("child_added", function(snap) {
         var msg = snap.val();
         if (!msg) return;
-        // Ignore old messages from before we connected (prevents trillo on startup)
-        if (msg.ts && msg.ts < walkieStartTime - 30000) return;
-        addWalkieMessage(msg);
+        // Ignore old messages
+        if (msg.ts && msg.ts < walkieStartTime - 5000) return;
 
-        // Trillo shake for everyone (including self)
+        // ── Trillo: shake + sound, auto-hide fast ──
         if (msg.type === "trillo") {
-          bubbleText.textContent = msg.from + " sent a TRILLO!";
+          bubbleText.textContent = msg.from + " sent a TRILLO! 📟";
           bubbleText.style.color = "#FF6B6B";
           setExpression("smirk");
           character.style.animation = "charTrillo 0.6s ease";
@@ -1638,92 +1528,31 @@
           var appEl = document.getElementById("app");
           appEl.classList.add("app-shake");
           setTimeout(function() { appEl.classList.remove("app-shake"); }, 500);
-          if (!walkieOpen) speechBubble.style.display = "block";
+          speechBubble.style.display = "block";
           speechBubble.classList.remove("alert");
           void speechBubble.offsetWidth;
           speechBubble.classList.add("alert");
-          // Auto-hide trillo after 5s
+          // Auto-hide trillo after 2s
           setTimeout(function() {
             if (bubbleText.textContent.indexOf("TRILLO") !== -1) {
               speechBubble.style.display = "none";
+              bubbleText.style.color = "";
             }
-          }, 5000);
+          }, 2000);
+          return;
         }
 
-        if (msg.from !== userName) {
-          if (msg.type !== "trillo" && msg.type === "message") {
-            bubbleText.textContent = msg.from + ": " + msg.text;
-            bubbleText.style.color = "#FFD700";
-            setExpression("happy");
-            character.style.animation = "charBounce 0.5s ease";
-            setTimeout(function() { character.style.animation = "charFloat 3s ease-in-out infinite"; }, 500);
-          }
-          speechBubble.classList.remove("alert");
-          if (!walkieOpen) speechBubble.style.display = "block";
+        // ── Message: show in bubble, stay until clicked ──
+        if (msg.from !== userName && msg.type === "message") {
+          bubbleText.textContent = msg.from + ": " + msg.text;
+          bubbleText.style.color = "#FFD700";
+          setExpression("happy");
+          character.style.animation = "charBounce 0.5s ease";
+          setTimeout(function() { character.style.animation = "charFloat 3s ease-in-out infinite"; }, 500);
+          speechBubble.style.display = "block";
+          walkieMsgSticky = true;
         }
       });
-
-      // Load recent history
-      document.getElementById("walkie-messages").innerHTML = "";
-      walkieRef.orderByChild("ts").limitToLast(20).once("value", function(snap) {
-        document.getElementById("walkie-messages").innerHTML = "";
-        snap.forEach(function(child) { addWalkieMessage(child.val()); });
-      });
-    }
-
-    // Room selector
-    roomSelect.addEventListener("change", function() {
-      joinRoom(this.value);
-    });
-
-    // Add room button
-    var addingRoom = false;
-    var newRoomInput = document.getElementById("walkie-new-room");
-    document.getElementById("walkie-add-room").addEventListener("click", function() {
-      if (!addingRoom) {
-        addingRoom = true;
-        newRoomInput.style.display = "block";
-        roomSelect.style.display = "none";
-        newRoomInput.focus();
-        this.textContent = "ok";
-      } else {
-        var val = newRoomInput.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
-        if (val && val !== "general") {
-          if (!customRooms.includes(val)) {
-            customRooms.push(val);
-            localStorage.setItem("joe-rooms", JSON.stringify(customRooms));
-            var opt = document.createElement("option");
-            opt.value = val; opt.textContent = val;
-            roomSelect.appendChild(opt);
-          }
-          roomSelect.value = val;
-          joinRoom(val);
-        }
-        addingRoom = false;
-        newRoomInput.style.display = "none";
-        newRoomInput.value = "";
-        roomSelect.style.display = "block";
-        this.textContent = "+";
-      }
-    });
-
-    newRoomInput.addEventListener("keydown", function(e) {
-      if (e.key === "Enter") document.getElementById("walkie-add-room").click();
-    });
-
-    function addWalkieMessage(msg) {
-      var messagesDiv = document.getElementById("walkie-messages");
-      var div = document.createElement("div");
-      div.className = "walkie-msg";
-      if (msg.type === "trillo") {
-        div.className += " trillo";
-        div.textContent = "~ " + msg.from + " sent a trillo ~";
-      } else {
-        if (msg.from === userName) div.className += " mine";
-        div.textContent = (msg.from === userName ? "" : msg.from + ": ") + msg.text;
-      }
-      messagesDiv.appendChild(div);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
 
     function sendWalkieMessage(text, type) {
@@ -1735,18 +1564,6 @@
         ts: firebase.database.ServerValue.TIMESTAMP
       });
     }
-
-    document.getElementById("walkie-send").addEventListener("click", function() {
-      var input = document.getElementById("walkie-input");
-      var text = input.value.trim();
-      if (!text) return;
-      sendWalkieMessage(text, "message");
-      input.value = "";
-    });
-
-    document.getElementById("walkie-input").addEventListener("keydown", function(e) {
-      if (e.key === "Enter") document.getElementById("walkie-send").click();
-    });
 
   </script>
 </body>
