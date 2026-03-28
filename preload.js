@@ -21,16 +21,16 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("change-name", callback),
   shakeWindow: () =>
     ipcRenderer.send("shake-window"),
+  quickAsk: (question) =>
+    ipcRenderer.send("quick-ask", question),
+  onQuickAskResponse: (callback) =>
+    ipcRenderer.on("quick-ask-response", (event, text) => callback(text)),
 
   // ── Module events ──
-  onFileWatcherLoading: (callback) =>
-    ipcRenderer.on("file-watcher-loading", (event, data) => callback(data)),
   onFileWatcherStep: (callback) =>
     ipcRenderer.on("file-watcher-step", (event, data) => callback(data)),
   fileWatcherResponse: (action, data) =>
     ipcRenderer.send("file-watcher-response", action, data),
-  openFolderPicker: (filePath, projectId) =>
-    ipcRenderer.send("open-folder-picker", filePath, projectId),
 
   onClipboardSuggestion: (callback) =>
     ipcRenderer.on("clipboard-suggestion", (event, data) => callback(data)),

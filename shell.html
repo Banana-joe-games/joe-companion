@@ -90,9 +90,9 @@
       position: absolute; bottom: 100%; right: 10px;
       margin-bottom: 4px;
       background: #1a1a1a; border: 1px solid #2a2a2a; color: #777;
-      padding: 4px 10px; border-radius: 10px; font-size: 11px;
-      white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-      transition: border-color 0.3s;
+      padding: 6px 12px; border-radius: 10px; font-size: 11px;
+      max-width: 400px; width: max-content; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      transition: border-color 0.3s; line-height: 1.4;
     }
     #speech-bubble.alert { border-color: #FFD700; }
     /* Walkie Talkie — floats independently */
@@ -827,6 +827,11 @@
         playTrilloSound();
         return;
       }
+      // Quick Ask: cmd+click (or alt+click) → input → screenshot + AI response in bubble
+      if (e.metaKey || e.altKey) {
+        showQuickAskInput();
+        return;
+      }
       if (chatOpen) {
         closeChat();
       } else {
@@ -986,150 +991,43 @@
 
     // ── Module Notifications ──
 
-    // File Watcher — loading indicator (fires immediately, before API responds)
-    window.electronAPI.onFileWatcherLoading && window.electronAPI.onFileWatcherLoading(function(data) {
-      if (chatOpen) return;
-      var loadingPhrases = [
-        "hmm let me see... 🤔",
-        "one sec, checking...",
-        "what did you download?",
-        "hold on, thinking...",
-        "let me take a look...",
-      ];
-      var msg = loadingPhrases[Math.floor(Math.random() * loadingPhrases.length)];
-      bubbleText.textContent = msg;
-      speechBubble.classList.remove("alert");
-      bubbleText.style.color = "#aaa";
-      speechBubble.style.display = "block";
-      setExpression("worried");
-    });
-
-    // File Watcher — step-based flow
+    // File Watcher — step-based flow (no API, instant project picker)
     window.electronAPI.onFileWatcherStep && window.electronAPI.onFileWatcherStep(function(data) {
       switch(data.step) {
 
         case "identify":
-          // Step 1: Joe suggests a project (AI always picks one now)
-          var desc = data.imageDescription || data.reason || "";
-          if (data.projectId && data.projectId !== "none") {
-            var conf = data.confidence;
-            var msg = conf === "low"
-              ? "could this be " + data.projectName + " stuff?"
-              : "looks like " + data.projectName + " stuff, right?";
-            showModuleDialog(msg, [
-              { label: "Si", action: function() {
-                window.electronAPI.fileWatcherResponse("confirm-project", { filePath: data.filePath, projectId: data.projectId, filename: data.filename, description: desc });
-              }},
-              { label: "No", action: function() {
-                window.electronAPI.fileWatcherResponse("wrong-project", { filePath: data.filePath, filename: data.filename, description: desc });
-              }},
-              { label: "Leave it", action: function() {
-                window.electronAPI.fileWatcherResponse("leave");
-                showFeedbackBubble("got it, leaving it alone 👍");
-              }},
-              { label: "\u{1F5D1}", action: function() {
-                window.electronAPI.fileWatcherResponse("trash", { filePath: data.filePath });
-              }},
-            ]);
-          } else {
-            showModuleDialog("can't figure out which project this is. whose is it?", [
-              { label: "Pick...", action: function() {
-                window.electronAPI.fileWatcherResponse("wrong-project", { filePath: data.filePath, filename: data.filename, description: desc });
-              }},
-              { label: "Leave it", action: function() {
-                window.electronAPI.fileWatcherResponse("leave");
-                showFeedbackBubble("got it, leaving it alone 👍");
-              }},
-              { label: "\u{1F5D1}", action: function() {
-                window.electronAPI.fileWatcherResponse("trash", { filePath: data.filePath });
-              }},
-            ]);
-          }
+          // Auto-detected project from filename
+          showModuleDialog("looks like " + data.projectName + " stuff, send to inbox?", [
+            { label: "Si", action: function() {
+              window.electronAPI.fileWatcherResponse("confirm-project", { filePath: data.filePath, projectId: data.projectId });
+            }},
+            { label: "No", action: function() {
+              window.electronAPI.fileWatcherResponse("wrong-project", { filePath: data.filePath, filename: data.filename });
+            }},
+            { label: "Leave it", action: function() {
+              window.electronAPI.fileWatcherResponse("leave");
+              showFeedbackBubble("ok, lo lascio qui 👍");
+            }},
+            { label: "\u{1F5D1}", action: function() {
+              window.electronAPI.fileWatcherResponse("trash", { filePath: data.filePath });
+            }},
+          ]);
           break;
 
         case "pick-project":
-          // Step 2: Show project list
-          var pickDesc = data.description || "";
+          // Show project buttons
           var btns = data.allProjects.map(function(p) {
             return { label: p.name, action: function() {
-              window.electronAPI.fileWatcherResponse("pick-project", { filePath: data.filePath, projectId: p.id, description: pickDesc });
+              window.electronAPI.fileWatcherResponse("pick-project", { filePath: data.filePath, projectId: p.id });
             }};
           });
-          btns.push({ label: "Other...", action: function() { showNewProjectInput(data.filePath); } });
-          btns.push({ label: "Leave it", action: function() { window.electronAPI.fileWatcherResponse("leave"); showFeedbackBubble("got it, leaving it alone 👍"); } });
+          btns.push({ label: "Leave it", action: function() { window.electronAPI.fileWatcherResponse("leave"); showFeedbackBubble("ok, lo lascio qui 👍"); } });
           btns.push({ label: "\u{1F5D1}", action: function() { window.electronAPI.fileWatcherResponse("trash", { filePath: data.filePath }); } });
-          showModuleDialog("which project?", btns);
-          break;
-
-        case "confirm-move":
-          // Step 3a: Known folder — confirm move
-          showModuleDialog("move it to " + data.folderName + "?", [
-            { label: "Si", action: function() {
-              window.electronAPI.fileWatcherResponse("set-folder", { filePath: data.filePath, projectId: data.projectId, folderPath: data.folderPath });
-            }},
-            { label: "Other folder", action: function() {
-              window.electronAPI.openFolderPicker(data.filePath, data.projectId);
-            }},
-            { label: "Leave it", action: function() { window.electronAPI.fileWatcherResponse("leave"); showFeedbackBubble("got it, leaving it alone 👍"); } },
-          ]);
-          break;
-
-        case "pick-folder":
-          // Step 3b: Unknown folder — ask user to pick
-          showModuleDialog("where should I put " + data.projectName + " files?", [
-            { label: "Pick folder", action: function() {
-              window.electronAPI.openFolderPicker(data.filePath, data.projectId);
-            }},
-            { label: "Leave it", action: function() { window.electronAPI.fileWatcherResponse("leave"); showFeedbackBubble("got it, leaving it alone 👍"); } },
-          ]);
+          var shortName = data.filename.length > 25 ? data.filename.substring(0, 22) + "..." : data.filename;
+          showModuleDialog(shortName + " — where to?", btns);
           break;
       }
     });
-
-    function showNewProjectInput(filePath) {
-      var old = document.getElementById("module-dialog");
-      if (old) old.remove();
-
-      var dialog = document.createElement("div");
-      dialog.id = "module-dialog";
-      dialog.style.cssText = "position:fixed; bottom:120px; right:20px; background:rgba(20,20,20,0.95); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:14px 16px; max-width:280px; z-index:9000; font-size:12px; color:#ccc; backdrop-filter:blur(20px);";
-
-      var label = document.createElement("div");
-      label.textContent = "Come si chiama il progetto?";
-      label.style.marginBottom = "10px";
-      dialog.appendChild(label);
-
-      var input = document.createElement("input");
-      input.type = "text";
-      input.placeholder = "nome progetto...";
-      input.style.cssText = "width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); color:#fff; padding:8px 10px; border-radius:6px; font-size:12px; font-family:inherit; outline:none; margin-bottom:10px;";
-      dialog.appendChild(input);
-
-      var btnRow = document.createElement("div");
-      btnRow.style.cssText = "display:flex; gap:6px;";
-
-      var okBtn = document.createElement("button");
-      okBtn.textContent = "Ok";
-      okBtn.style.cssText = "background:rgba(255,215,0,0.3); border:1px solid rgba(255,215,0,0.4); color:#FFD700; padding:6px 16px; border-radius:6px; font-size:11px; cursor:pointer; font-family:inherit;";
-      okBtn.addEventListener("click", function() {
-        var name = input.value.trim();
-        if (name) {
-          dialog.remove();
-          window.electronAPI.fileWatcherResponse("new-project", { filePath: filePath, projectName: name });
-        }
-      });
-      btnRow.appendChild(okBtn);
-
-      var cancelBtn = document.createElement("button");
-      cancelBtn.textContent = "Annulla";
-      cancelBtn.style.cssText = "background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); color:#888; padding:6px 12px; border-radius:6px; font-size:11px; cursor:pointer; font-family:inherit;";
-      cancelBtn.addEventListener("click", function() { dialog.remove(); window.electronAPI.fileWatcherResponse("leave"); });
-      btnRow.appendChild(cancelBtn);
-
-      dialog.appendChild(btnRow);
-      document.getElementById("app").appendChild(dialog);
-      setTimeout(function() { input.focus(); }, 100);
-    }
 
     // Clipboard suggestion
     window.electronAPI.onClipboardSuggestion && window.electronAPI.onClipboardSuggestion(function(data) {
@@ -1267,7 +1165,34 @@
       ]);
     });
 
+    // Quick Ask response — stays until dismissed
+    window.electronAPI.onQuickAskResponse && window.electronAPI.onQuickAskResponse(function(text) {
+      moduleDialogActive = true;
+      var old = document.getElementById("module-dialog");
+      if (old) old.remove();
+
+      var dialog = document.createElement("div");
+      dialog.id = "module-dialog";
+      dialog.style.cssText = "position:fixed; bottom:120px; right:20px; background:rgba(20,20,20,0.95); border:2px solid #FFD700; border-radius:12px; padding:14px 16px; max-width:380px; z-index:9000; font-size:12px; color:#ccc; backdrop-filter:blur(20px); line-height:1.5; box-shadow: 0 0 12px rgba(255,215,0,0.15);";
+
+      var content = document.createElement("div");
+      content.textContent = text;
+      content.style.cssText = "margin-bottom:10px; white-space:pre-wrap; word-wrap:break-word;";
+      dialog.appendChild(content);
+
+      var closeBtn = document.createElement("button");
+      closeBtn.textContent = "✕";
+      closeBtn.style.cssText = "position:absolute; top:6px; right:8px; background:none; border:none; color:#666; font-size:14px; cursor:pointer; padding:2px 6px;";
+      closeBtn.addEventListener("click", function() { dialog.remove(); moduleDialogActive = false; });
+      dialog.appendChild(closeBtn);
+
+      speechBubble.style.display = "none";
+      document.getElementById("app").appendChild(dialog);
+      setExpression("happy");
+    });
+
     // Generic bubble from modules — shows raw text directly
+    var showBubbleTimer = null;
     window.electronAPI.onShowBubble && window.electronAPI.onShowBubble(function(text) {
       moduleDialogActive = false;
       bubbleText.textContent = text;
@@ -1278,6 +1203,12 @@
       setExpression("happy");
       character.style.animation = "charBounce 0.5s ease";
       setTimeout(function() { character.style.animation = "charFloat 3s ease-in-out infinite"; }, 500);
+      // Auto-hide after 4 seconds
+      if (showBubbleTimer) clearTimeout(showBubbleTimer);
+      showBubbleTimer = setTimeout(function() {
+        speechBubble.style.display = "none";
+        showBubbleTimer = null;
+      }, 4000);
     });
 
     // ── Screenshot detected on Desktop ──
@@ -1302,6 +1233,60 @@
       ]);
       setExpression("surprised");
     });
+
+    // Quick Ask: small input → screenshot + AI → answer in bubble
+    function showQuickAskInput() {
+      var old = document.getElementById("module-dialog");
+      if (old) old.remove();
+
+      var dialog = document.createElement("div");
+      dialog.id = "module-dialog";
+      dialog.style.cssText = "position:fixed; bottom:120px; right:20px; background:rgba(20,20,20,0.95); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:14px 16px; max-width:280px; z-index:9000; font-size:12px; color:#ccc; backdrop-filter:blur(20px);";
+
+      var label = document.createElement("div");
+      label.textContent = "ask me anything about what's on screen";
+      label.style.cssText = "margin-bottom:10px; color:#FFD700; font-size:11px;";
+      dialog.appendChild(label);
+
+      var input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = "e.g. where are the settings?";
+      input.style.cssText = "width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); color:#fff; padding:8px 10px; border-radius:6px; font-size:12px; font-family:inherit; outline:none; margin-bottom:10px; box-sizing:border-box;";
+      dialog.appendChild(input);
+
+      var btnRow = document.createElement("div");
+      btnRow.style.cssText = "display:flex; gap:6px;";
+
+      var askBtn = document.createElement("button");
+      askBtn.textContent = "Ask";
+      askBtn.style.cssText = "background:rgba(255,215,0,0.3); border:1px solid rgba(255,215,0,0.4); color:#FFD700; padding:6px 16px; border-radius:6px; font-size:11px; cursor:pointer; font-family:inherit;";
+      askBtn.addEventListener("click", function() {
+        var q = input.value.trim();
+        if (q) {
+          dialog.remove();
+          moduleDialogActive = false;
+          window.electronAPI.quickAsk(q);
+        }
+      });
+      btnRow.appendChild(askBtn);
+
+      var cancelBtn = document.createElement("button");
+      cancelBtn.textContent = "Cancel";
+      cancelBtn.style.cssText = "background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); color:#888; padding:6px 12px; border-radius:6px; font-size:11px; cursor:pointer; font-family:inherit;";
+      cancelBtn.addEventListener("click", function() { dialog.remove(); moduleDialogActive = false; });
+      btnRow.appendChild(cancelBtn);
+
+      dialog.appendChild(btnRow);
+      document.getElementById("app").appendChild(dialog);
+      moduleDialogActive = true;
+      setTimeout(function() { input.focus(); }, 100);
+
+      // Submit on Enter
+      input.addEventListener("keydown", function(e) {
+        if (e.key === "Enter") { askBtn.click(); }
+        if (e.key === "Escape") { cancelBtn.click(); }
+      });
+    }
 
     // Module dialog helper — replaces flavor bubble, takes priority
     function showFeedbackBubble(text) {

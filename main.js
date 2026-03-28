@@ -122,6 +122,19 @@ function createTray() {
         });
       },
     },
+    { type: "separator" },
+    {
+      label: "Shortcuts",
+      submenu: [
+        { label: "Cmd+Click Joe  →  Quick Ask (screenshot + AI)", enabled: false },
+        { label: "Shift+Click Joe  →  Trillo", enabled: false },
+        { label: "Ctrl+Q  →  Quick Chat", enabled: false },
+        { label: "Ctrl+S  →  Screenshot to Chat", enabled: false },
+        { label: "Ctrl+A  →  Next Calendar Event", enabled: false },
+        { label: "Ctrl+M  →  Check Gmail", enabled: false },
+        { label: "Cmd+Shift+C  →  Show / Hide Joe", enabled: false },
+      ],
+    },
   ];
 
   if (hasGmailOAuth) {
@@ -244,6 +257,57 @@ function openQuickChat() {
   mainWindow.webContents.send("quick-chat");
 }
 
+// ── Quick Ask: screenshot + question → AI bubble response ──
+const { callClaude } = require("./modules/claude-api");
+
+ipcMain.on("quick-ask", (event, question) => {
+  if (!question || !question.trim()) return;
+  const tmpFile = path.join(os.tmpdir(), `joe-quickask-${Date.now()}.png`);
+
+  mainWindow.hide();
+  setTimeout(() => {
+    // Take screenshot, then resize, then call Claude
+    exec(`screencapture -x "${tmpFile}"`, () => {
+      const tmpJpg = tmpFile.replace(".png", ".jpg");
+      exec(`sips -s format jpeg -s formatOptions 90 --resampleWidth 1920 "${tmpFile}" --out "${tmpJpg}"`, () => {
+        mainWindow.show();
+        mainWindow.webContents.send("show-bubble", "let me look... 🤔");
+
+        const sendFile = fs.existsSync(tmpJpg) ? tmpJpg : tmpFile;
+        const imgData = fs.readFileSync(sendFile).toString("base64");
+        const mediaType = sendFile.endsWith(".jpg") ? "image/jpeg" : "image/png";
+        console.log(`Quick Ask: sending ${Math.round(imgData.length / 1024)}KB to Claude`);
+
+        try { fs.unlinkSync(tmpFile); } catch(e) {}
+        try { fs.unlinkSync(tmpJpg); } catch(e) {}
+
+        callClaude(
+          `You are Joe, a helpful macOS desktop assistant. The user took a screenshot of their screen and asks: "${question}"
+
+Look at the screenshot carefully and answer their question.
+- Answer ONLY based on what you can actually see in the screenshot
+- If you can see clickable elements, buttons, or menu items that answer the question, point them out with their exact label and position
+- If the answer isn't visible on screen, say where to look (e.g. "try the menu bar" or "check the sidebar")
+- Be concise: 2-3 sentences max, casual tone
+- Answer in the same language the user used`,
+          {
+            model: "claude-haiku-4-5-20251001",
+            imageBase64: imgData,
+            mediaType,
+            maxTokens: 250,
+          }
+        ).then((response) => {
+          console.log(`Quick Ask response received`);
+          mainWindow.webContents.send("quick-ask-response", response || "hmm, not sure about that one...");
+        }).catch((e) => {
+          console.log(`Quick Ask error: ${e.message}`);
+          mainWindow.webContents.send("quick-ask-response", "couldn't figure that out, sorry...");
+        });
+      });
+    });
+  }, 500);
+});
+
 // ── Window ──
 function createWindow() {
   const display = screen.getPrimaryDisplay();
@@ -304,9 +368,7 @@ function createWindow() {
 ipcMain.on("file-watcher-response", (event, action, data) => {
   fileWatcher.handleResponse(action, data);
 });
-ipcMain.on("open-folder-picker", (event, filePath, projectId) => {
-  fileWatcher.openFolderPicker(filePath, projectId);
-});
+// folder picker removed — files go directly to project "To Organize" inbox
 // ipcMain.on("clipboard-response", (event, action, data) => {
 //   clipboardMonitor.handleResponse(action, data);
 // });
