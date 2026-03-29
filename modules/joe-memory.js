@@ -684,6 +684,15 @@ module.exports = {
   // Claude.ai memory sync
   syncFromClaudeMemory,
 
+  // Recent phrases (persisted for dedup across restarts)
+  getRecentPhrases() { return brain.recentPhrases || []; },
+  pushRecentPhrase(phrase) {
+    if (!brain.recentPhrases) brain.recentPhrases = [];
+    brain.recentPhrases.push(phrase);
+    if (brain.recentPhrases.length > 15) brain.recentPhrases.shift();
+    scheduleSave();
+  },
+
   // Persistence
   shutdown,
   saveNow,

@@ -13,7 +13,7 @@ let contextStartTime = Date.now();
 let appMinutes = {};      // { "photoshop": 342, ... } — for top-app tracking
 let switchCount = 0;
 let dayStart = null;
-let recentPhrases = [];   // last 15 phrases to avoid repeats
+// recentPhrases persisted via joe-memory.js (joe-brain.json) to survive restarts
 
 // Fallback phrases if API is unavailable — in-character, no API needed
 const FALLBACK_PHRASES = [
@@ -107,7 +107,7 @@ function buildPhrasePrompt(context, appName, winTitle, project) {
   const recentProjectActivity = joeMemory.getRecentProjectActivity();
   const projectCtx = joeCharacter.getProjectContext(projectKnowledge, recentProjectActivity);
 
-  const recentList = recentPhrases.slice(-10).join('" / "');
+  const recentList = joeMemory.getRecentPhrases().slice(-10).join('" / "');
 
   // Determine if Joe just switched or has been here a while
   const contextLine = appName
@@ -146,7 +146,7 @@ WHAT TO SAY — pick one type based on context:
 - ${cbFreq > 0.05 ? `(callback) reference something specific from your shared history. "you did this same thing on tuesday."` : "(not yet) no callbacks — you haven't been here long enough."}
 - ${qFreq > 0.08 ? `(follow-up question) push the thought one step further. externalize what they left internal. "the red works. what are you thinking for the background?" — only one question, only if natural.` : "(not yet) too early for questions."}
 - (pattern) if you've counted something or noticed a behavioral pattern, state it as a service. "7 app switches in 4 minutes."
-- (dormant project) if bored and a project has been quiet, bring it up. "whatever happened to that bombshell thing?"
+- (dormant project) if bored and a project has been quiet, bring up a specific dormant project by name. base it on what you actually know from the project list above.
 
 if a lateral connection is obvious, use it — that's your most distinctive behavior.
 if you ask a question, make it specific. base it only on what you actually know.
@@ -188,9 +188,8 @@ async function generatePhrase(context, appName, winTitle) {
 
     if (!phrase || phrase.length > 60 || phrase.length < 2) return fallback();
 
-    // Dedupe
-    recentPhrases.push(phrase);
-    if (recentPhrases.length > 15) recentPhrases.shift();
+    // Dedupe (persisted to joe-brain.json)
+    joeMemory.pushRecentPhrase(phrase);
 
     // Store in memory
     const entry = joeMemory.addConversation("phrase", null, phrase, context, joeMemory.getCurrentMood());
@@ -212,8 +211,7 @@ async function generatePhrase(context, appName, winTitle) {
 
 function fallback() {
   const phrase = FALLBACK_PHRASES[Math.floor(Math.random() * FALLBACK_PHRASES.length)];
-  recentPhrases.push(phrase);
-  if (recentPhrases.length > 15) recentPhrases.shift();
+  joeMemory.pushRecentPhrase(phrase);
   return phrase;
 }
 

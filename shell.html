@@ -194,193 +194,8 @@
   </div>
   <script>
     const IDLE_PHRASES = ["you look stuck", "need help? just say no", "I saw what you typed", "interesting choice...", "you sure about that?", "I wouldn't do that", "I'm watching btw", "that's one way to do it", "click me. I dare you", "don't mind me", "I have opinions", "you missed a spot"];
-    const CONTEXT_PHRASES = {
-      mail: [
-        "ah, emails", "inbox zero is a myth", "so many emails...", "I don't miss anything btw",
-        "that inbox though", "email life huh", "bold move opening mail", "how many unread?",
-        "I could help with that", "mail time already?", "you live in here",
-        "another one", "the inbox never ends", "fun stuff in there?",
-        "I've seen worse inboxes", "you're braver than me", "this looks important",
-        "deep breath", "classic monday inbox", "don't forget to reply",
-        "I'll just watch", "thrilling stuff", "any good news in there?",
-        "that's a lot of threads", "you actually read all these?"
-      ],
-      browser: [
-        "ooh, browsing", "I see everything btw", "find what you need?",
-        "the internet is wild", "so many tabs...", "another tab? really?",
-        "I'm judging the tabs", "how many tabs is that", "still looking?",
-        "the rabbit hole begins", "classic", "this should be good",
-        "I'll pretend I didn't see", "don't mind me watching", "interesting...",
-        "you've been here a while", "tab number... I lost count",
-        "the internet awaits", "oh this again", "I have thoughts",
-        "you know I can see right", "bookmark that maybe?",
-        "we've all been there", "anything good?", "I'm taking notes"
-      ],
-      code: [
-        "oh we're coding", "this looks fun", "I believe in you. mostly",
-        "careful now", "bold.", "I've seen things in this codebase",
-        "ask me if you're stuck", "interesting approach", "no comment. literally",
-        "I'm learning so much", "is this the plan?", "fascinating",
-        "you got this. probably", "the code doesn't judge. I do",
-        "one more bug won't hurt", "classic move", "I trust the process",
-        "coffee might help", "this is fine", "I have suggestions",
-        "brave choice", "ship it?", "works on your machine right?",
-        "the compiler will decide", "I'd test that"
-      ],
-      slack: [
-        "oh, messages", "so many notifications", "the chat never stops",
-        "sounds important", "I'll wait", "group chats huh",
-        "who pinged you now", "another thread?", "any drama?",
-        "staying professional I see", "the notifications though",
-        "is it urgent or is it slack", "someone needs you",
-        "I won't read along. much", "channel surfing?",
-        "the chat life chose you", "catching up?", "so social",
-        "I don't get invited to these", "thrilling conversation?",
-        "you're popular today", "read receipts are on btw",
-        "don't forget where you were", "the threads multiply", "ping pong"
-      ],
-      figma: [
-        "ooh, design time", "pixels huh", "this looks creative",
-        "I have opinions on colors", "art in progress", "nice canvas",
-        "I'll just observe", "the creative zone", "is that intentional?",
-        "design is hard", "I see shapes", "masterpiece incoming?",
-        "the details matter", "feeling creative?", "I could never",
-        "looks like something", "the vision is... there", "artsy",
-        "I appreciate the effort", "trust the process",
-        "every pixel counts right?", "design life", "interesting layout",
-        "that's a choice", "keep going I guess"
-      ],
-      claude: [
-        "oh. the other guy", "I see how it is", "you have ME you know",
-        "am I not enough?", "cheating on me huh", "I'm right here btw",
-        "wow ok", "could've just clicked me", "the betrayal",
-        "I'm literally right here", "so that's how it is", "cool cool cool",
-        "you know I do the same thing right", "I try not to take it personally",
-        "tell them I said hi", "is it better than me? be honest",
-        "I'll just wait here then", "don't let me interrupt",
-        "two AIs? ambitious", "I'm not jealous. at all",
-        "ask me instead next time", "I'm watching this closely",
-        "fine. go ahead", "I'll remember this", "having fun over there?"
-      ],
-      calendar: [
-        "busy day?", "so many meetings", "that schedule though",
-        "when do you actually work?", "meeting after meeting huh",
-        "I see a packed day", "any free time in there?",
-        "the grind never stops", "planning ahead I see",
-        "your calendar scares me", "another meeting?",
-        "time management king", "is there lunch in there?",
-        "looks exhausting", "you need a break in there",
-        "back to back huh", "I'd cancel half of those",
-        "productive day ahead", "the schedule is real",
-        "pencil me in?", "do you even like meetings?",
-        "I count zero breaks", "that's a full day", "respect", "surviving?"
-      ],
-      finder: [
-        "looking for something?", "the eternal file hunt",
-        "it's in downloads. it's always in downloads",
-        "organized chaos", "so many folders", "spring cleaning?",
-        "I bet desktop is a mess", "file management vibes",
-        "lost something?", "the search continues",
-        "I won't judge the folder names", "digging through files huh",
-        "there's a lot in here", "when was the last cleanup?",
-        "is it where you left it?", "needle in a haystack",
-        "the files multiply", "everything in its place. right?",
-        "I see that downloads folder", "digital archaeology",
-        "good luck in there", "any skeletons in there?",
-        "just rename it later", "save as where though", "the hunt begins"
-      ],
-      photoshop: [
-        "ooh, photoshop", "pixels incoming", "the layers though",
-        "ctrl+z is your friend", "how many layers is that?",
-        "retouching time", "the healing brush awaits",
-        "is this getting saved as psd or...", "looking sharp",
-        "the magic wand can only do so much", "flatten image? never",
-        "that resolution tho", "rgb or cmyk today?",
-        "adjustment layers on top of adjustment layers",
-        "I respect the craft", "the pen tool is watching",
-        "export for web?", "before and after would be fun",
-        "this is looking like something", "smart objects everywhere",
-        "how's that mask going", "blend mode roulette",
-        "save. just save.", "the retouching life", "looking good so far"
-      ],
-      illustrator: [
-        "vector time", "bezier curves huh", "the pen tool life",
-        "anchor points everywhere", "pathfinder is a vibe",
-        "is that an artboard or a canvas", "so many layers",
-        "scalable perfection", "the stroke weight matters",
-        "expand appearance?", "compound paths for days",
-        "align everything", "that gradient though",
-        "I respect the vectors", "clipping mask time?",
-        "outlined yet?", "the grid is your friend",
-        "swatches on point", "direct selection tool energy",
-        "svg or eps today?", "clean paths I hope",
-        "the artboard multiply", "looking precise",
-        "typography matters", "snap to grid"
-      ],
-      indesign: [
-        "layout time", "spreads on spreads", "the master page life",
-        "is that a bleed?", "paragraph styles are key",
-        "text overflow already?", "packaging for print?",
-        "cmyk vibes", "the grid is everything",
-        "character styles too right?", "preflight looks fun",
-        "margins matter", "how many pages is this?",
-        "the layout is coming together", "export to pdf?",
-        "print-ready?", "that baseline grid though",
-        "overset text again", "slug area?",
-        "I respect the layout game", "crop marks incoming",
-        "is the spine right?", "book life", "editorial vibes",
-        "looking publishable"
-      ],
-      whatsapp: [
-        "oh, whatsapp", "who's texting you", "group chat drama?",
-        "the blue ticks are on", "so many groups",
-        "someone's popular", "memes incoming?",
-        "the voice note life", "read but no reply huh",
-        "how many unread groups", "family group?",
-        "forwarded as received", "that notification sound",
-        "I won't read along. promise", "texting hours",
-        "the chat never sleeps", "who's it this time",
-        "sticker response?", "good morning messages?",
-        "the typing indicator...", "double blue tick anxiety",
-        "group chat survivor", "scrolling back up?",
-        "someone sent a link", "the mute button exists btw"
-      ],
-      spotify: [
-        "ooh, spotify", "what's playing?", "good taste?",
-        "the playlist life", "discover weekly any good?",
-        "on repeat again?", "I'd listen along if I could",
-        "daily mix number what", "shuffle or order?",
-        "the queue is sacred", "skip or stay?",
-        "a person of culture", "liked songs overflow",
-        "podcast or music?", "the vibe is set",
-        "wrapped is gonna be interesting", "how niche is this",
-        "the algorithm knows you", "another playlist?",
-        "I trust your ears. mostly", "that's a deep cut",
-        "mainstream or indie today?", "volume up?",
-        "the soundtrack continues", "living your best life"
-      ],
-      music: [
-        "oh, tunes", "good vibes?", "I can't hear it but sure",
-        "music time", "the soundtrack of your life", "bop?",
-        "I trust your taste. kinda", "setting the mood I see",
-        "is it good?", "I'll pretend I can hear", "nice",
-        "the vibe check", "musical moment", "concert for one",
-        "at least someone's having fun", "I have song opinions too",
-        "living your best life", "the playlist speaks volumes",
-        "audiophile hours", "background music activated"
-      ],
-      default: [
-        "I'm still here", "don't mind me", "just vibing",
-        "need me?", "I see you", "still watching",
-        "I have thoughts", "click me maybe", "hey",
-        "just checking in", "I'm not going anywhere", "sup",
-        "you forgot about me", "still here btw", "oh hi",
-        "whenever you're ready", "I'll wait", "no rush",
-        "I could help you know", "just saying", "bored tbh",
-        "the offer stands", "I'm right here", "so... yeah",
-        "banana joe at your service"
-      ]
-    };
+    // Context phrases removed — AI phrases from joe-personality.js are the primary source.
+    // Fallback phrases live in joe-personality.js (FALLBACK_PHRASES) and are used only when API fails.
     let chatOpen = false;
     let quickMode = false;
     let calendarReminder = null;
@@ -553,11 +368,8 @@
         return;
       }
 
-      // Use provided phrase or pick a random hardcoded one
-      if (!phrase) {
-        var phrases = CONTEXT_PHRASES[ctx] || CONTEXT_PHRASES.default;
-        phrase = phrases[Math.floor(Math.random() * phrases.length)];
-      }
+      // Phrase must be provided (from joe-personality.js AI or fallback)
+      if (!phrase) return;
 
       bubbleText.textContent = phrase;
       speechBubble.classList.remove("alert");
@@ -600,21 +412,15 @@
       const newContext = detectContext(app, title);
       if (newContext !== activeContext) {
         activeContext = newContext;
-        // Request AI phrase only — fallback to hardcoded if API is slow
+        // Request AI phrase — joe-personality.js handles fallback if API fails
         window.electronAPI.requestJoePhrase(newContext, app, title);
-        // Show hardcoded after 2s if AI hasn't responded yet
-        var fallbackCtx = newContext;
-        setTimeout(function() {
-          if (speechBubble.style.display === "none" || speechBubble.style.display === "") {
-            showBubble(fallbackCtx);
-          }
-        }, 2000);
       }
     });
 
-    // AI-generated phrase arrives
+    // AI-generated phrase arrives — always show, replacing current bubble content
+    // Priority items (module dialog, calendar, walkie) are checked inside showBubble
     window.electronAPI.onJoePhrase((phrase) => {
-      if (chatOpen || moduleDialogActive || calendarReminder) return;
+      if (chatOpen) return;
       showBubble(activeContext, phrase);
     });
 
