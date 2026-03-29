@@ -311,13 +311,24 @@ ipcMain.on("quick-ask", (event, question) => {
 
   mainWindow.hide();
   setTimeout(() => {
-    exec(`screencapture -x "${tmpFile}"`, () => {
+    exec(`screencapture -x "${tmpFile}"`, (err) => {
+      if (err || !fs.existsSync(tmpFile)) {
+        console.error("Quick Ask: screencapture failed:", err);
+        mainWindow.show();
+        mainWindow.webContents.send("show-bubble", "non riesco a catturare lo schermo 😅");
+        return;
+      }
       const tmpJpg = tmpFile.replace(".png", ".jpg");
       exec(`sips -s format jpeg -s formatOptions 90 --resampleWidth 1920 "${tmpFile}" --out "${tmpJpg}"`, () => {
         mainWindow.show();
         mainWindow.webContents.send("show-bubble", "let me look... 🤔");
 
         const sendFile = fs.existsSync(tmpJpg) ? tmpJpg : tmpFile;
+        if (!fs.existsSync(sendFile)) {
+          console.error("Quick Ask: screenshot file not found:", sendFile);
+          mainWindow.webContents.send("show-bubble", "non riesco a catturare lo schermo 😅");
+          return;
+        }
         const imgData = fs.readFileSync(sendFile).toString("base64");
         const mediaType = sendFile.endsWith(".jpg") ? "image/jpeg" : "image/png";
         console.log(`Quick Ask: sending ${Math.round(imgData.length / 1024)}KB to Claude`);
