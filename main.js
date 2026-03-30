@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, globalShortcut, ipcMain, Tray, Menu, nativeImage, dialog, desktopCapturer } = require("electron");
+const { app, BrowserWindow, screen, globalShortcut, ipcMain, Tray, Menu, nativeImage, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -183,29 +183,31 @@ function createTray() {
   tray.setContextMenu(contextMenu);
 }
 
-// ── Screenshot helper (uses Electron desktopCapturer, no screencapture binary) ──
-async function captureScreen() {
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width, height } = primaryDisplay.size;
-  const scaleFactor = primaryDisplay.scaleFactor || 1;
-  const sources = await desktopCapturer.getSources({
-    types: ["screen"],
-    thumbnailSize: { width: Math.round(width * scaleFactor), height: Math.round(height * scaleFactor) },
+// ── Screenshot helper (uses osascript to bypass Electron permission issues) ──
+function captureScreenToFile(tmpFile) {
+  return new Promise((resolve, reject) => {
+    // Use osascript → shell to run screencapture, inherits Terminal/osascript permissions
+    const cmd = `osascript -e 'do shell script "/usr/sbin/screencapture -x ${tmpFile.replace(/'/g, "'\\''")}"'`;
+    exec(cmd, (err) => {
+      if (err || !fs.existsSync(tmpFile)) return reject(err || new Error("no file"));
+      resolve(tmpFile);
+    });
   });
-  if (!sources || sources.length === 0) return null;
-  return sources[0].thumbnail; // nativeImage
 }
 
 // ── Screenshot to Chat ──
 function takeScreenshot() {
   const { clipboard } = require("electron");
+  const tmpFile = path.join(os.tmpdir(), `joe-screenshot-${Date.now()}.png`);
   mainWindow.hide();
   setTimeout(async () => {
     try {
-      const img = await captureScreen();
+      await captureScreenToFile(tmpFile);
       mainWindow.show();
-      if (!img || img.isEmpty()) {
-        mainWindow.webContents.send("show-bubble", "non riesco a catturare lo schermo 😅");
+      const img = nativeImage.createFromPath(tmpFile);
+      try { fs.unlinkSync(tmpFile); } catch(e) {}
+      if (img.isEmpty()) {
+        mainWindow.webContents.send("show-bubble", "screenshot vuoto 😅");
         return;
       }
       clipboard.writeImage(img);
@@ -336,16 +338,18 @@ ipcMain.on("quick-ask", (event, question) => {
   mainWindow.hide();
   setTimeout(async () => {
     try {
-      const img = await captureScreen();
+      await captureScreenToFile(tmpFile);
       mainWindow.show();
-      if (!img || img.isEmpty()) {
-        mainWindow.webContents.send("show-bubble", "non riesco a catturare lo schermo 😅");
-        return;
-      }
       mainWindow.webContents.send("show-bubble", "let me look... 🤔");
 
+      const rawImg = nativeImage.createFromPath(tmpFile);
+      try { fs.unlinkSync(tmpFile); } catch(e) {}
+      if (rawImg.isEmpty()) {
+        mainWindow.webContents.send("show-bubble", "screenshot vuoto 😅");
+        return;
+      }
       // Resize to max 1920px wide and convert to JPEG for smaller payload
-      const resized = img.resize({ width: Math.min(1920, img.getSize().width) });
+      const resized = rawImg.resize({ width: Math.min(1920, rawImg.getSize().width) });
       const imgData = resized.toJPEG(90).toString("base64");
       const mediaType = "image/jpeg";
       console.log(`Quick Ask: sending ${Math.round(imgData.length / 1024)}KB to Claude`);
