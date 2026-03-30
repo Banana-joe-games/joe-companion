@@ -1,6 +1,6 @@
 {
   "name": "clippy-claude",
-  "version": "2.8.1",
+  "version": "2.9.0",
   "description": "Joe — a sassy banana companion that floats on your macOS desktop",
   "main": "main.js",
   "scripts": {

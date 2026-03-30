@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, globalShortcut, ipcMain, Tray, Menu, nativeImage, dialog } = require("electron");
+const { app, BrowserWindow, screen, globalShortcut, ipcMain, Tray, Menu, nativeImage, dialog, desktopCapturer } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -183,14 +183,38 @@ function createTray() {
   tray.setContextMenu(contextMenu);
 }
 
-// ── Screenshot ──
+// ── Screenshot helper (uses Electron desktopCapturer, no screencapture binary) ──
+async function captureScreen() {
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.size;
+  const scaleFactor = primaryDisplay.scaleFactor || 1;
+  const sources = await desktopCapturer.getSources({
+    types: ["screen"],
+    thumbnailSize: { width: Math.round(width * scaleFactor), height: Math.round(height * scaleFactor) },
+  });
+  if (!sources || sources.length === 0) return null;
+  return sources[0].thumbnail; // nativeImage
+}
+
+// ── Screenshot to Chat ──
 function takeScreenshot() {
+  const { clipboard } = require("electron");
   mainWindow.hide();
-  setTimeout(() => {
-    exec("screencapture -ic", () => {
+  setTimeout(async () => {
+    try {
+      const img = await captureScreen();
       mainWindow.show();
+      if (!img || img.isEmpty()) {
+        mainWindow.webContents.send("show-bubble", "non riesco a catturare lo schermo 😅");
+        return;
+      }
+      clipboard.writeImage(img);
       mainWindow.webContents.send("open-chat-and-paste");
-    });
+    } catch (e) {
+      console.error("Screenshot failed:", e);
+      mainWindow.show();
+      mainWindow.webContents.send("show-bubble", "non riesco a catturare lo schermo 😅");
+    }
   }, 300);
 }
 
@@ -310,31 +334,21 @@ ipcMain.on("quick-ask", (event, question) => {
   const pendingQ = joeMemory.getRecentPendingQuestion();
 
   mainWindow.hide();
-  setTimeout(() => {
-    exec(`screencapture -x "${tmpFile}"`, (err) => {
-      if (err || !fs.existsSync(tmpFile)) {
-        console.error("Quick Ask: screencapture failed:", err);
-        mainWindow.show();
+  setTimeout(async () => {
+    try {
+      const img = await captureScreen();
+      mainWindow.show();
+      if (!img || img.isEmpty()) {
         mainWindow.webContents.send("show-bubble", "non riesco a catturare lo schermo 😅");
         return;
       }
-      const tmpJpg = tmpFile.replace(".png", ".jpg");
-      exec(`sips -s format jpeg -s formatOptions 90 --resampleWidth 1920 "${tmpFile}" --out "${tmpJpg}"`, () => {
-        mainWindow.show();
-        mainWindow.webContents.send("show-bubble", "let me look... 🤔");
+      mainWindow.webContents.send("show-bubble", "let me look... 🤔");
 
-        const sendFile = fs.existsSync(tmpJpg) ? tmpJpg : tmpFile;
-        if (!fs.existsSync(sendFile)) {
-          console.error("Quick Ask: screenshot file not found:", sendFile);
-          mainWindow.webContents.send("show-bubble", "non riesco a catturare lo schermo 😅");
-          return;
-        }
-        const imgData = fs.readFileSync(sendFile).toString("base64");
-        const mediaType = sendFile.endsWith(".jpg") ? "image/jpeg" : "image/png";
-        console.log(`Quick Ask: sending ${Math.round(imgData.length / 1024)}KB to Claude`);
-
-        try { fs.unlinkSync(tmpFile); } catch(e) {}
-        try { fs.unlinkSync(tmpJpg); } catch(e) {}
+      // Resize to max 1920px wide and convert to JPEG for smaller payload
+      const resized = img.resize({ width: Math.min(1920, img.getSize().width) });
+      const imgData = resized.toJPEG(90).toString("base64");
+      const mediaType = "image/jpeg";
+      console.log(`Quick Ask: sending ${Math.round(imgData.length / 1024)}KB to Claude`);
 
         const prompt = `${identity}
 
@@ -377,8 +391,11 @@ answer rules:
           console.log(`Quick Ask error: ${e.message}`);
           mainWindow.webContents.send("quick-ask-response", "couldn't figure that out, sorry...");
         });
-      });
-    });
+    } catch (e) {
+      console.error("Quick Ask screenshot failed:", e);
+      mainWindow.show();
+      mainWindow.webContents.send("show-bubble", "non riesco a catturare lo schermo 😅");
+    }
   }, 500);
 });
 
