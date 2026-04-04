@@ -35,7 +35,8 @@
     },
     "asarUnpack": [
       "cal-helper",
-      "screen-helper"
+      "screen-helper",
+      "key-helper"
     ],
     "files": [
       "main.js",
@@ -45,6 +46,7 @@
       "firebase-config.js",
       "cal-helper",
       "screen-helper",
+      "key-helper",
       "modules/**",
       "scripts/**"
     ]

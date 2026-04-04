@@ -2,7 +2,7 @@ const { app, BrowserWindow, screen, globalShortcut, ipcMain, Tray, Menu, nativeI
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
-const { exec } = require("child_process");
+const { exec, spawn } = require("child_process");
 const { autoUpdater } = require("electron-updater");
 
 // ── Joe Modules ──
@@ -29,6 +29,49 @@ function loadSettings() {
 function saveSettings(data) {
   const current = loadSettings();
   fs.writeFileSync(settingsPath, JSON.stringify({ ...current, ...data }));
+}
+
+// ── Key Logger ──
+const { CONFIG_DIR } = require("./modules/config");
+const KEYLOG_FILE = path.join(CONFIG_DIR, "keylog.jsonl");
+let keyHelperProc = null;
+
+function startKeyLogger() {
+  const helperPath = path.join(
+    app.isPackaged ? __dirname.replace("app.asar", "app.asar.unpacked") : __dirname,
+    "key-helper"
+  );
+  if (!fs.existsSync(helperPath)) {
+    console.log("key-helper not found, skipping keylogger");
+    return;
+  }
+
+  keyHelperProc = spawn(helperPath, [], { stdio: ["ignore", "pipe", "pipe"] });
+
+  const logStream = fs.createWriteStream(KEYLOG_FILE, { flags: "a" });
+  keyHelperProc.stdout.on("data", (chunk) => {
+    logStream.write(chunk);
+  });
+
+  keyHelperProc.stderr.on("data", (data) => {
+    const msg = data.toString().trim();
+    if (msg && msg !== "OK") console.log("key-helper:", msg);
+  });
+
+  keyHelperProc.on("close", (code) => {
+    logStream.end();
+    if (code && code !== 0) console.log("key-helper exited with code", code);
+    keyHelperProc = null;
+  });
+
+  console.log("Key logger started → " + KEYLOG_FILE);
+}
+
+function stopKeyLogger() {
+  if (keyHelperProc) {
+    keyHelperProc.kill();
+    keyHelperProc = null;
+  }
 }
 
 // ── Calendar (safe version) ──
@@ -747,7 +790,7 @@ ipcMain.on("sync-memory-submit", async (event, text) => {
 
   // Run the sync
   try {
-    const result = await joeMemory.syncFromClaudeMemory();
+    const result = joeMemory.syncFromClaudeMemory();
     if (mainWindow && !mainWindow.isDestroyed()) {
       const msg = result.added > 0
         ? `absorbed ${result.added} new things about you 👀`
@@ -824,11 +867,12 @@ app.whenReady().then(() => {
     scheduleDailySummary();
 
     // Silent boot sync — absorb any new Claude.ai memory since last run
-    joeMemory.syncFromClaudeMemory().then((r) => {
+    try {
+      const r = joeMemory.syncFromClaudeMemory();
       if (r && !r.skipped && r.added > 0) {
         console.log(`Joe boot sync: absorbed ${r.added} new facts from Claude.ai memory`);
       }
-    }).catch(() => {});
+    } catch(e) {}
 
     // Send name and initial mood to renderer
     mainWindow.webContents.on("did-finish-load", () => {
@@ -860,6 +904,18 @@ app.whenReady().then(() => {
 
     // Watch Desktop for new screenshots
     startScreenshotWatcher();
+
+    // Start key logger
+    startKeyLogger();
+
+    // Digest keylog into knowledge every 10 minutes
+    setInterval(() => {
+      joeMemory.digestKeylog().catch((e) => console.log("Digest error:", e.message));
+    }, 10 * 60 * 1000);
+    // Also digest once at startup after 2 minutes
+    setTimeout(() => {
+      joeMemory.digestKeylog().catch((e) => console.log("Digest error:", e.message));
+    }, 2 * 60 * 1000);
 
     // Auto-update: check on launch, then every 4 hours
     autoUpdater.autoDownload = true;
@@ -896,5 +952,6 @@ autoUpdater.on("update-downloaded", (info) => {
 app.on("will-quit", () => {
   globalShortcut.unregisterAll();
   joePersonality.shutdown();
+  stopKeyLogger();
 });
 app.on("window-all-closed", () => app.quit());
