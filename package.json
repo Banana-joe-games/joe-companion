@@ -33,6 +33,10 @@
       "owner": "Banana-joe-games",
       "repo": "joe-companion"
     },
+    "asarUnpack": [
+      "cal-helper",
+      "screen-helper"
+    ],
     "files": [
       "main.js",
       "preload.js",
@@ -40,6 +44,7 @@
       "onboarding.html",
       "firebase-config.js",
       "cal-helper",
+      "screen-helper",
       "modules/**",
       "scripts/**"
     ]

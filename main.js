@@ -33,7 +33,10 @@ function saveSettings(data) {
 
 // ── Calendar (safe version) ──
 function checkCalendar() {
-  const helperPath = path.join(__dirname, "cal-helper");
+  const helperPath = path.join(
+    app.isPackaged ? __dirname.replace("app.asar", "app.asar.unpacked") : __dirname,
+    "cal-helper"
+  );
   exec(`"${helperPath}"`, { timeout: 10000 }, (error, stdout) => {
     if (error || !stdout || !stdout.trim()) return;
     const lines = stdout.trim().split("\n").filter(l => l.trim());
@@ -183,13 +186,19 @@ function createTray() {
   tray.setContextMenu(contextMenu);
 }
 
-// ── Screenshot helper (uses osascript to bypass Electron permission issues) ──
+// ── Screenshot helper (uses screen-helper Swift binary with ScreenCaptureKit) ──
 function captureScreenToFile(tmpFile) {
+  // In packaged app, asarUnpack puts binaries in app.asar.unpacked/
+  const helperPath = path.join(
+    app.isPackaged ? __dirname.replace("app.asar", "app.asar.unpacked") : __dirname,
+    "screen-helper"
+  );
   return new Promise((resolve, reject) => {
-    // Use osascript → shell to run screencapture, inherits Terminal/osascript permissions
-    const cmd = `osascript -e 'do shell script "/usr/sbin/screencapture -x ${tmpFile.replace(/'/g, "'\\''")}"'`;
-    exec(cmd, (err) => {
-      if (err || !fs.existsSync(tmpFile)) return reject(err || new Error("no file"));
+    exec(`"${helperPath}" "${tmpFile}"`, (err, stdout, stderr) => {
+      if (err || !fs.existsSync(tmpFile)) {
+        console.error("screen-helper failed:", stderr || err);
+        return reject(err || new Error(stderr || "no file"));
+      }
       resolve(tmpFile);
     });
   });
