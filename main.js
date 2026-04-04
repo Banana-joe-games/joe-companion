@@ -398,8 +398,7 @@ answer rules:
           // Mark pending question as answered
           if (pendingQ) joeMemory.markQuestionAnswered(pendingQ.question);
 
-          // Async: try to learn a fact from this interaction
-          joeMemory.maybeLearnFact(entry).catch(() => {});
+          // maybeLearnFact removed — no more API calls from memory
         }).catch((e) => {
           console.log(`Quick Ask error: ${e.message}`);
           mainWindow.webContents.send("quick-ask-response", "couldn't figure that out, sorry...");
@@ -814,13 +813,10 @@ app.whenReady().then(() => {
       if (target <= now) target.setDate(target.getDate() + 1);
       const msUntil = target.getTime() - now.getTime();
       setTimeout(() => {
-        joeMemory.generateDailySummary(name).then((summary) => {
-          if (summary) console.log("Joe daily summary:", summary.substring(0, 80));
-        }).catch(() => {});
-        joeMemory.evolveProjectOpinions(name).catch(() => {});
+        const summary = joeMemory.generateDailySummary(name);
+        if (summary) console.log("Joe daily summary:", summary.substring(0, 80));
         setInterval(() => {
-          joeMemory.generateDailySummary(name).catch(() => {});
-          joeMemory.evolveProjectOpinions(name).catch(() => {});
+          joeMemory.generateDailySummary(name);
         }, 24 * 60 * 60 * 1000);
       }, msUntil);
       console.log(`Joe daily summary scheduled in ${Math.round(msUntil / 60000)} minutes`);

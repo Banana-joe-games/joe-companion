@@ -6,7 +6,7 @@ const fs = require("fs");
 const path = require("path");
 const { CONFIG_DIR, log } = require("./config");
 const { getSeedData } = require("./joe-seed");
-const { callClaude, parseJSON } = require("./claude-api");
+// Claude API removed from memory — all memory ops are local only
 
 const BRAIN_FILE = path.join(CONFIG_DIR, "joe-brain.json");
 
@@ -253,8 +253,8 @@ function updateMoodFromSignals(signals) {
   }
 }
 
-// ── Daily summary ──
-async function generateDailySummary(userName) {
+// ── Daily summary (local, no API) ──
+function generateDailySummary(userName) {
   const today = new Date().toDateString();
   const cutoff = new Date();
   cutoff.setHours(0, 0, 0, 0);
@@ -262,75 +262,30 @@ async function generateDailySummary(userName) {
   const todayConvos = brain.conversations.filter(c => c.ts >= cutoff.getTime());
   if (todayConvos.length === 0) return null;
 
-  // Don't regenerate if we already have one for today
   const existing = brain.dailySummaries.find(s => s.date === today);
   if (existing) return existing.summary;
 
-  const prompt = `you are joe's internal diary. summarize today in 2-3 short sentences from joe's perspective.
-what happened today with ${userName}: ${JSON.stringify(todayConvos.map(c => ({ type: c.type, userSaid: c.userSaid, joeSaid: c.joeSaid, context: c.context })))}
-
-be specific, personal, opinionated. this is joe talking to himself about his day.
-lowercase. no emoji. just the summary, nothing else.`;
-
-  try {
-    const summary = await callClaude(prompt, { maxTokens: 120, model: "claude-haiku-4-5-20251001" });
-    const entry = { date: today, summary: summary.trim(), ts: Date.now() };
-
-    brain.dailySummaries.push(entry);
-    if (brain.dailySummaries.length > MAX_DAILY_SUMMARIES) {
-      brain.dailySummaries = brain.dailySummaries.slice(-MAX_DAILY_SUMMARIES);
-    }
-
-    scheduleSave();
-    return summary;
-  } catch (e) {
-    log("Joe daily summary error: " + e.message);
-    return null;
+  // Build simple local summary from conversation types
+  const types = {};
+  for (const c of todayConvos) {
+    types[c.type] = (types[c.type] || 0) + 1;
   }
+  const parts = [];
+  if (types["quick-ask"]) parts.push(`${types["quick-ask"]} quick-ask`);
+  if (types["phrase"]) parts.push(`${types["phrase"]} phrases`);
+  if (types["file-watcher"]) parts.push(`${types["file-watcher"]} file events`);
+  const summary = `${userName}: ${todayConvos.length} interactions (${parts.join(", ") || "misc"})`;
+
+  const entry = { date: today, summary, ts: Date.now() };
+  brain.dailySummaries.push(entry);
+  if (brain.dailySummaries.length > MAX_DAILY_SUMMARIES) {
+    brain.dailySummaries = brain.dailySummaries.slice(-MAX_DAILY_SUMMARIES);
+  }
+  scheduleSave();
+  return summary;
 }
 
-// Update Joe's opinions on projects based on today's activity
-async function evolveProjectOpinions(userName) {
-  const today = new Date().toDateString();
-  const cutoff = new Date();
-  cutoff.setHours(0, 0, 0, 0);
-
-  const todayActivity = brain.conversations
-    .filter(c => c.ts >= cutoff.getTime() && c.context)
-    .map(c => c.context);
-
-  if (todayActivity.length === 0) return;
-
-  // Find which projects had activity today
-  const activeProjects = Object.entries(brain.projectActivity).filter(([id]) =>
-    brain.projectActivity[id].lastSeen &&
-    new Date(brain.projectActivity[id].lastSeen).toDateString() === today
-  );
-
-  if (activeProjects.length === 0) return;
-
-  const prompt = `you are joe's internal monologue. based on what you've seen today with ${userName}:
-${JSON.stringify(activeProjects.map(([id, p]) => ({ project: id, recentFiles: p.recentFiles?.slice(-3), recentApps: p.recentApps?.slice(-3) })))}
-
-update your private opinions about these projects. be specific, personal, opinionated.
-respond ONLY as valid JSON: { "PROJECTID": "brief opinion update (max 15 words)" }
-only include projects that had real activity. no markdown, no explanation.`;
-
-  try {
-    const result = await callClaude(prompt, { maxTokens: 150, model: "claude-haiku-4-5-20251001" });
-    const opinions = parseJSON(result);
-    if (!opinions) return;
-
-    for (const [id, opinion] of Object.entries(opinions)) {
-      if (brain.projectActivity[id]) {
-        brain.projectActivity[id].joesOpinion = opinion;
-      }
-    }
-    scheduleSave();
-  } catch (e) {
-    log("Joe evolve opinions error: " + e.message);
-  }
-}
+// evolveProjectOpinions removed — was using API credits for no real benefit
 
 // ── Project activity ──
 function updateProjectActivity(projectId, { file, app } = {}) {
@@ -511,30 +466,7 @@ function updatePatterns(appSwitchCount, topApp, interactionCount) {
   scheduleSave();
 }
 
-// ── Maybe learn a fact (async, 30% chance) ──
-async function maybeLearnFact(interaction) {
-  if (Math.random() > 0.3) return;
-
-  const existing = getUserFacts(0).map(f => f.fact);
-  const prompt = `based on this interaction, is there anything specific and NEW worth remembering about the user?
-interaction: ${JSON.stringify({ type: interaction.type, userSaid: interaction.userSaid, joeSaid: interaction.joeSaid, context: interaction.context })}
-already known: ${JSON.stringify(existing.slice(0, 10))}
-
-if yes, respond ONLY with valid JSON: {"fact": "specific observation, max 15 words", "confidence": 0.5-0.9}
-if nothing new or not specific enough, respond ONLY with: {"fact": null}
-no markdown, no explanation.`;
-
-  try {
-    const result = await callClaude(prompt, { maxTokens: 60, model: "claude-haiku-4-5-20251001" });
-    const parsed = parseJSON(result);
-    if (parsed?.fact) {
-      learnFact(parsed.fact, "quick-ask-inference", parsed.confidence || 0.6);
-      log(`Joe learned: "${parsed.fact}"`);
-    }
-  } catch (e) {
-    log("Joe fact learning error: " + e.message);
-  }
-}
+// maybeLearnFact removed — was using API credits after every Quick Ask
 
 // ── Claude.ai Memory Sync ──
 const SYNC_FILE = path.join(CONFIG_DIR, "claude-memory-sync.txt");
@@ -551,7 +483,8 @@ function fuzzyMatchFact(newFact, existingFacts) {
   return null;
 }
 
-async function syncFromClaudeMemory() {
+// syncFromClaudeMemory: reads facts line-by-line from sync file (no API)
+function syncFromClaudeMemory() {
   try {
     if (!fs.existsSync(SYNC_FILE)) return { added: 0, updated: 0, skipped: true };
 
@@ -559,60 +492,29 @@ async function syncFromClaudeMemory() {
     const fileMtime = stat.mtimeMs;
 
     if (brain.lastMemorySyncTs && fileMtime <= brain.lastMemorySyncTs) {
-      return { added: 0, updated: 0, skipped: true }; // already synced this version
+      return { added: 0, updated: 0, skipped: true };
     }
 
-    let text = fs.readFileSync(SYNC_FILE, "utf8").trim();
+    const text = fs.readFileSync(SYNC_FILE, "utf8").trim();
     if (!text) return { added: 0, updated: 0, skipped: true };
-    text = text.substring(0, 15000); // cap to stay within token limits
 
-    const prompt = `Extract factual information about the user from this text.
-Return ONLY a JSON array of objects with this format:
-[{"fact": "short factual statement", "confidence": 0.9, "category": "work|personal|project|preference|relationship"}]
+    // Each non-empty line is treated as a fact
+    const lines = text.split("\n").map(l => l.trim()).filter(l => l && !l.startsWith("#"));
+    let added = 0;
 
-Rules:
-- Each fact should be one specific thing, not a paragraph
-- Skip anything vague or meta (like "user prefers concise answers")
-- Focus on: projects, people, places, skills, habits, opinions, plans, deadlines
-- If a fact is about a specific project, include the project name in the fact
-- Max 50 facts
-- Confidence: 1.0 for explicit statements, 0.8 for strong implications, 0.6 for inferences
-
-Text to extract from:
-${text}`;
-
-    const result = await callClaude(prompt, { maxTokens: 2000, model: "claude-haiku-4-5-20251001" });
-
-    const match = result.match(/\[[\s\S]*\]/);
-    if (!match) return { added: 0, updated: 0, skipped: false };
-
-    const facts = JSON.parse(match[0]);
-    if (!Array.isArray(facts)) return { added: 0, updated: 0, skipped: false };
-
-    let added = 0, updated = 0;
-
-    for (const f of facts) {
-      if (!f.fact || typeof f.fact !== "string") continue;
-
-      const existing = fuzzyMatchFact(f.fact, brain.userFacts);
-      if (existing) {
-        if ((f.confidence || 0.6) > (existing.confidence || 0.6)) {
-          existing.confidence = f.confidence;
-          updated++;
-        }
-      } else {
+    for (const line of lines.slice(0, 50)) {
+      const existing = fuzzyMatchFact(line, brain.userFacts);
+      if (!existing) {
         brain.userFacts.push({
-          fact: f.fact,
-          confidence: f.confidence || 0.6,
+          fact: line,
+          confidence: 0.8,
           learnedFrom: "claude-memory-sync",
-          category: f.category || "general",
           ts: Date.now(),
         });
         added++;
       }
     }
 
-    // Cap and keep highest-confidence facts
     if (brain.userFacts.length > MAX_USER_FACTS) {
       brain.userFacts.sort((a, b) => b.confidence - a.confidence);
       brain.userFacts = brain.userFacts.slice(0, MAX_USER_FACTS);
@@ -620,8 +522,8 @@ ${text}`;
 
     brain.lastMemorySyncTs = fileMtime;
     saveNow();
-    log(`Joe memory sync: +${added} new, ${updated} updated`);
-    return { added, updated, skipped: false };
+    if (added > 0) log(`Joe memory sync: +${added} new facts (local)`);
+    return { added, updated: 0, skipped: false };
   } catch (e) {
     log("Joe memory sync error: " + e.message);
     return { added: 0, updated: 0, skipped: false, error: e.message };
@@ -651,7 +553,6 @@ module.exports = {
   // Facts
   learnFact,
   getUserFacts,
-  maybeLearnFact,
 
   // Mood
   getCurrentMood,
@@ -660,7 +561,6 @@ module.exports = {
 
   // Daily
   generateDailySummary,
-  evolveProjectOpinions,
 
   // Projects
   updateProjectActivity,
