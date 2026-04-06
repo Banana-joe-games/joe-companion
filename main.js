@@ -563,11 +563,8 @@ ipcMain.on("file-watcher-response", (event, action, data) => {
 ipcMain.on("email-response", (event, action) => {
   emailMonitor.handleResponse(action);
 });
-ipcMain.on("joe-phrase-request", async (event, context, app, title) => {
-  const phrase = await joePersonality.generatePhrase(context, app, title);
-  if (phrase && mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send("joe-phrase", phrase);
-  }
+// joe-phrase-request disabled — no more API calls for random bubble phrases
+ipcMain.on("joe-phrase-request", () => {
 });
 ipcMain.on("email-check-now", () => {
   emailMonitor.manualCheck();
