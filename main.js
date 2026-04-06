@@ -195,6 +195,7 @@ function createTray() {
         { label: "Ctrl+Q  →  Quick Chat", enabled: false },
         { label: "Ctrl+S  →  Screenshot to Chat", enabled: false },
         { label: "Ctrl+A  →  Next Calendar Event", enabled: false },
+        { label: "Ctrl+K  →  Joe's Memory", enabled: false },
         { label: "Cmd+Shift+C  →  Show / Hide Joe", enabled: false },
         ...(hasGmailOAuth ? [{ label: "Ctrl+M  →  Check Gmail", enabled: false }] : []),
       ],
@@ -890,6 +891,26 @@ app.whenReady().then(() => {
     globalShortcut.register("Control+Q", () => openQuickChat());
 
     globalShortcut.register("Control+A", () => checkCalendar());
+
+    globalShortcut.register("Control+K", () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        // Read keylog and knowledge, send to renderer
+        const keylogPath = path.join(CONFIG_DIR, "keylog.jsonl");
+        const knowledgePath = path.join(CONFIG_DIR, "joe-knowledge.txt");
+        let keylog = [];
+        let knowledge = "";
+        try {
+          if (fs.existsSync(keylogPath)) {
+            const lines = fs.readFileSync(keylogPath, "utf8").trim().split("\n").filter(Boolean);
+            keylog = lines.slice(-50).map(l => { try { return JSON.parse(l); } catch(e) { return null; } }).filter(Boolean);
+          }
+        } catch(e) {}
+        try {
+          if (fs.existsSync(knowledgePath)) knowledge = fs.readFileSync(knowledgePath, "utf8").trim();
+        } catch(e) {}
+        mainWindow.webContents.send("show-keylog", { keylog, knowledge });
+      }
+    });
 
     globalShortcut.register("Control+M", () => {
       if (mainWindow && !mainWindow.isDestroyed()) {

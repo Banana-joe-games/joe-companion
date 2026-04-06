@@ -1110,6 +1110,55 @@
       }, 4000);
     });
 
+    // ── Keylog viewer (Ctrl+K) ──
+    window.electronAPI.onShowKeylog && window.electronAPI.onShowKeylog(function(data) {
+      // Close chat if open
+      if (chatOpen) closeChat();
+
+      var old = document.getElementById("keylog-panel");
+      if (old) { old.remove(); return; } // toggle off
+
+      var panel = document.createElement("div");
+      panel.id = "keylog-panel";
+      panel.style.cssText = "position:fixed;top:20px;right:80px;width:420px;max-height:500px;background:rgba(30,30,30,0.95);color:#eee;border-radius:12px;padding:16px;font-size:12px;font-family:monospace;overflow-y:auto;z-index:9999;backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.1);";
+
+      var html = "<div style='font-size:14px;font-weight:bold;margin-bottom:12px;color:#FFD700;'>🧠 joe's memory</div>";
+
+      // Knowledge section
+      if (data.knowledge) {
+        html += "<div style='margin-bottom:12px;'><div style='color:#FFD700;margin-bottom:4px;'>what joe knows:</div>";
+        html += "<div style='white-space:pre-wrap;color:#ccc;line-height:1.5;'>" + data.knowledge.replace(/</g,"&lt;") + "</div></div>";
+      } else {
+        html += "<div style='color:#666;margin-bottom:12px;'>joe doesn't know anything yet. keep typing.</div>";
+      }
+
+      // Recent keylog
+      html += "<div style='color:#FFD700;margin-bottom:4px;'>recent keystrokes:</div>";
+      if (data.keylog.length === 0) {
+        html += "<div style='color:#666;'>nothing recorded yet.</div>";
+      } else {
+        for (var i = data.keylog.length - 1; i >= Math.max(0, data.keylog.length - 30); i--) {
+          var e = data.keylog[i];
+          var time = new Date(e.ts).toLocaleTimeString();
+          var app = e.app || "?";
+          var text = (e.text || "").replace(/</g,"&lt;").substring(0, 80);
+          html += "<div style='margin:2px 0;'><span style='color:#888;'>" + time + "</span> <span style='color:#FFD700;'>[" + app + "]</span> " + text + "</div>";
+        }
+      }
+
+      panel.innerHTML = html;
+
+      // Click outside to close
+      panel.addEventListener("click", function(ev) { ev.stopPropagation(); });
+      document.addEventListener("click", function close() {
+        var p = document.getElementById("keylog-panel");
+        if (p) p.remove();
+        document.removeEventListener("click", close);
+      }, { once: false });
+
+      document.body.appendChild(panel);
+    });
+
     // ── Screenshot detected on Desktop ──
     window.electronAPI.onScreenshotDetected && window.electronAPI.onScreenshotDetected(function(data) {
       showModuleDialog("screenshot! what do?", [

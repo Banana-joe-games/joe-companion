@@ -94,6 +94,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   onJoeMoodUpdate: (callback) =>
     ipcRenderer.on("joe-mood-update", (event, mood) => callback(mood)),
 
+  // Keylog viewer
+  onShowKeylog: (callback) =>
+    ipcRenderer.on("show-keylog", (event, data) => callback(data)),
+
   saveApiKey: (key) =>
     ipcRenderer.send("save-api-key", key),
 

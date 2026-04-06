@@ -210,8 +210,7 @@ async function generatePhrase(context, appName, winTitle) {
       joeMemory.addPendingQuestion(phrase, project?.id || context);
     }
 
-    // Occasionally learn a fact (async, non-blocking)
-    joeMemory.maybeLearnFact(entry).catch(() => {});
+    // maybeLearnFact removed
 
     return phrase;
   } catch (e) {
